@@ -1,0 +1,273 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+    --sidebar-bg: 222.2 47.4% 11.2%;
+    --sidebar-fg: 210 40% 98%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+/* Mobile-optimized touch targets */
+@layer utilities {
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Better scrollbar for desktop */
+  @media (min-width: 768px) {
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  }
+
+  /* Improve focus visibility */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Prevent text selection on buttons */
+  button, a {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Allow text selection in inputs */
+  input, textarea, select {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* Print-specific styles for A4 tenancy agreements */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 20mm 15mm 25mm 15mm;
+    @top-center { content: element(header); }
+    @bottom-center { content: element(footer); }
+  }
+
+  /* Generic list-page print styles */
+  body {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide navigation and UI chrome */
+  aside, nav, header, .no-print {
+    display: none !important;
+  }
+
+  /* Remove shadows and borders from cards */
+  [class*="shadow"], [class*="rounded"] {
+    box-shadow: none !important;
+  }
+
+  /* Make main content full width */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Tables: force borders, black text */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  table th, table td {
+    border: 1px solid #ccc !important;
+    padding: 4px 8px !important;
+    color: black !important;
+    background: white !important;
+    font-size: 10pt !important;
+  }
+  table th {
+    background: #f0f0f0 !important;
+    font-weight: 600 !important;
+  }
+
+  /* Remove hover states */
+  * {
+    background-image: none !important;
+  }
+
+  /* Hide action/filter bars */
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Show URLs in links */
+  a[href]::after {
+    content: none; /* Don't show URLs - too noisy for internal links */
+  }
+
+  .agreement-print {
+    font-family: 'Times New Roman', serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    color: #000;
+    max-width: 100%;
+    counter-reset: page;
+  }
+
+  .agreement-print .page-number::after { content: counter(page); counter-increment: page; }
+
+  /* Running header */
+  .agreement-header {
+    position: running(header);
+    font-size: 8pt;
+    color: #888;
+    border-bottom: 1pt solid #ccc;
+    padding-bottom: 4px;
+  }
+
+  /* Running footer */
+  .agreement-footer {
+    position: running(footer);
+    font-size: 8pt;
+    color: #888;
+    border-top: 1pt solid #ccc;
+    padding-top: 4px;
+    text-align: center;
+  }
+
+  .agreement-print h1 { font-size: 18pt; text-align: center; margin-bottom: 20px; }
+  .agreement-print h2 {
+    font-size: 13pt;
+    font-weight: bold;
+    border-bottom: 1pt solid #333;
+    padding-bottom: 4px;
+    margin-top: 24px;
+    margin-bottom: 8px;
+    page-break-after: avoid;
+  }
+  .agreement-print h3 { font-size: 11pt; font-weight: bold; margin-top: 14px; }
+  .agreement-print p { margin-bottom: 8px; text-align: justify; }
+  .agreement-print ul, .agreement-print ol { margin-bottom: 8px; padding-left: 24px; }
+  .agreement-print table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  .agreement-print table th, .agreement-print table td { border: 1px solid #333; padding: 6px 8px; font-size: 11pt; }
+
+  /* Page break controls */
+  .page-break { page-break-before: always; }
+  .avoid-break { page-break-inside: avoid; }
+
+  /* Signature page */
+  .signature-page { page-break-before: always; }
+  .signature-execution {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e5e5;
+  }
+  .signature-execution p { margin-bottom: 4px; }
+  .signature-line-wrapper { margin-top: 48px; }
+  .signature-line {
+    border-top: 1px solid #000;
+    width: 280px;
+    padding-top: 2px;
+    font-size: 9pt;
+    color: #666;
+  }
+  .signature-date { font-size: 10pt; margin-top: 8px; }
+  .execution-text { font-style: italic; margin: 24px 0; }
+  .signature-image { max-width: 250px; max-height: 80px; margin-bottom: 8px; }
+
+  /* Agreement cover/details */
+  .agreement-cover { text-align: center; margin-bottom: 30px; }
+  .agreement-cover h1 { margin-top: 20px; }
+  .agreement-details { margin: 20px auto; border: none; }
+  .agreement-details td { border: none; padding: 4px 12px; font-size: 12pt; }
+  .agreement-details td:first-child { font-weight: bold; text-align: right; color: #555; }
+  .company-logo { max-height: 60px; margin-bottom: 10px; }
+
+  /* Hide UI elements */
+  .no-print { display: none !important; }
+}
+
+/* Screen preview styles for agreements */
+.agreement-preview-screen {
+  background: white;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  width: 210mm;
+  min-height: 297mm;
+  padding: 20mm 15mm 25mm 15mm;
+  margin: 0 auto;
+  font-family: 'Times New Roman', serif;
+  font-size: 12pt;
+  line-height: 1.5;
+}
+.agreement-preview-screen h1 { font-size: 18pt; text-align: center; margin-bottom: 20px; }
+.agreement-preview-screen h2 {
+  font-size: 13pt; font-weight: bold; border-bottom: 1pt solid #333;
+  padding-bottom: 4px; margin-top: 24px; margin-bottom: 8px;
+}
+.agreement-preview-screen h3 { font-size: 11pt; font-weight: bold; margin-top: 14px; }
+.agreement-preview-screen p { margin-bottom: 8px; text-align: justify; }
+.agreement-preview-screen ul, .agreement-preview-screen ol { margin-bottom: 8px; padding-left: 24px; }
+.agreement-preview-screen table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+.agreement-preview-screen table th, .agreement-preview-screen table td { border: 1px solid #333; padding: 6px 8px; font-size: 11pt; }
+.agreement-preview-screen .page-break { border: 2px dashed #cbd5e1; padding: 8px; margin: 16px 0; text-align: center; color: #64748b; font-size: 10px; }
+.agreement-preview-screen .signature-page { border-top: 2px solid #e5e5e5; padding-top: 20px; margin-top: 20px; }
+.agreement-preview-screen .signature-execution { margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e5e5; }
+.agreement-preview-screen .signature-line-wrapper { margin-top: 48px; }
+.agreement-preview-screen .signature-line { border-top: 1px solid #000; width: 280px; padding-top: 2px; font-size: 9pt; color: #666; }
+.agreement-preview-screen .execution-text { font-style: italic; margin: 24px 0; }
+.agreement-preview-screen .signature-date { font-size: 10pt; margin-top: 8px; }
+.agreement-preview-screen .agreement-cover { text-align: center; margin-bottom: 30px; }
+.agreement-preview-screen .agreement-details { margin: 20px auto; border: none; }
+.agreement-preview-screen .agreement-details td { border: none; padding: 4px 12px; font-size: 12pt; }
+.agreement-preview-screen .agreement-details td:first-child { font-weight: bold; text-align: right; color: #555; }
+.agreement-preview-screen .company-logo { max-height: 60px; margin-bottom: 10px; }
