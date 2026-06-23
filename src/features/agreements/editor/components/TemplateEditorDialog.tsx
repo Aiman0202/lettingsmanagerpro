@@ -41,21 +41,34 @@ export default function TemplateEditorDialog({ open, onClose }: TemplateEditorDi
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async (html: string) => {
+      console.log('Save attempt - HTML length:', html.length)
+      
       // First try to update existing row (must add .select() to get data back)
       const { error: updateError, data: updateData } = await (supabase.from('agreement_defaults') as any)
         .update({ body_html: html, updated_at: new Date().toISOString() })
         .eq('key', 'default_ast')
         .select('*')
       
+      console.log('Update result - error:', updateError, 'data:', updateData)
+      
       // If update succeeded and returned data, we're done
       if (!updateError && updateData && updateData.length > 0) {
+        console.log('Template updated successfully')
         return
       }
       
       // If update found no rows, insert new one
+      console.log('No existing row found, attempting INSERT')
+      const insertPayload = { key: 'default_ast', name: 'Assured Shorthold Tenancy Agreement', body_html: html }
+      console.log('Insert payload:', JSON.stringify(insertPayload, null, 2).slice(0, 500))
+      
       const { error: insertError } = await (supabase.from('agreement_defaults') as any)
-        .insert({ key: 'default_ast', name: 'Assured Shorthold Tenancy Agreement', body_html: html })
-      if (insertError) throw insertError
+        .insert(insertPayload)
+      if (insertError) {
+        console.error('Insert error:', insertError)
+        throw insertError
+      }
+      console.log('Template inserted successfully')
     },
     onSuccess: () => {
       console.log('Template saved successfully')
