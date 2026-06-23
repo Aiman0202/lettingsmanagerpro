@@ -98,7 +98,11 @@
     @bottom-center { content: element(footer); }
   }
 
-  /* Generic list-page print styles */
+  /* Hide everything except agreement content */
+  body > * {
+    display: none !important;
+  }
+  
   body {
     background: white !important;
     color: black !important;
@@ -106,8 +110,24 @@
     print-color-adjust: exact;
   }
 
-  /* Hide navigation and UI chrome */
-  aside, nav, header, .no-print {
+  /* Show only the agreement print view */
+  .agreement-print,
+  .agreement-preview-screen {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide UI chrome and settings */
+  aside, nav, header, .no-print, .print-hide,
+  [class*="dialog"], [class*="Dialog"], [class*="modal"] {
     display: none !important;
   }
 

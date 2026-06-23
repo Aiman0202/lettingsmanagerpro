@@ -86,10 +86,16 @@ export function useTemplateEditor({
 
   /**
    * Serialise editor content back to HTML.
+   * Converts `<span data-merge-field="X">Y</span>` back to `{{X}}`.
    */
   const getHTML = useCallback((): string => {
     if (!editor) return ''
-    return editor.getHTML()
+    const rawHtml = editor.getHTML()
+    // Convert merge field spans back to {{token}} format
+    return rawHtml.replace(
+      /<span[^>]*data-merge-field="([a-z0-9_]+)"[^>]*>[^<]*<\/span>/gi,
+      '{{\$1}}'
+    )
   }, [editor])
 
   /**

@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Printer, Settings, X } from 'lucide-react'
+import { Printer, X } from 'lucide-react'
 import AgreementPrintView from './AgreementPrintView'
-import PrintCustomizationPanel from './PrintCustomizationPanel'
 import { DEFAULT_PRINT_OPTIONS, printOptionsToCssVars } from '@/utils/print-options'
 import type { PrintOptions } from '@/utils/print-options'
 
@@ -14,8 +13,7 @@ interface AgreementPreviewDialogProps {
 }
 
 export default function AgreementPreviewDialog({ agreementId, open, onClose }: AgreementPreviewDialogProps) {
-  const [printOptions, setPrintOptions] = useState<PrintOptions>(DEFAULT_PRINT_OPTIONS)
-  const [showPanel, setShowPanel] = useState(true)
+  const [printOptions] = useState<PrintOptions>(DEFAULT_PRINT_OPTIONS)
 
   function handlePrint() {
     // Apply CSS variables to the document root so they persist in print
@@ -29,20 +27,10 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] w-full max-h-[92vh] overflow-hidden p-0 flex flex-col">
-        <DialogHeader className="px-6 pt-5 pb-4 border-b border-gray-200 shrink-0">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-gray-200 shrink-0 print-hide">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg">Agreement Print Preview</DialogTitle>
             <div className="flex gap-2 items-center">
-              <Button
-                variant={showPanel ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setShowPanel(!showPanel)}
-                title={showPanel ? 'Hide settings panel' : 'Show settings panel'}
-                className="gap-1.5"
-              >
-                <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Settings</span>
-              </Button>
               <Button onClick={handlePrint} size="sm" className="gap-1.5">
                 <Printer className="h-4 w-4" /> Print / Save PDF
               </Button>
@@ -51,9 +39,6 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
               </Button>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Adjust print settings on the right. Changes apply live to the preview below.
-          </p>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden min-h-0">
@@ -65,13 +50,6 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
               printOptions={printOptions}
             />
           </div>
-
-          {/* Settings panel */}
-          {showPanel && (
-            <div className="w-72 shrink-0 overflow-y-auto border-l border-gray-200 bg-white px-4 py-5">
-              <PrintCustomizationPanel options={printOptions} onChange={setPrintOptions} />
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>
