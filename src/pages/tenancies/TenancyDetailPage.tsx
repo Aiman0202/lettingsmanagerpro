@@ -556,6 +556,16 @@ export default function TenancyDetailPage() {
         tenancyId={id!}
         checklistType="move_out"
       />
+
+      {receiptTxn && (
+        <PaymentReceiptDialog
+          open={!!receiptTxn}
+          onClose={() => setReceiptTxn(null)}
+          transaction={receiptTxn}
+          tenantName={(tenancy as any)?.tenancy_tenants?.[0]?.tenants?.full_name}
+          propertyAddress={(tenancy as any)?.properties?.address}
+        />
+      )}
     </div>
   )
 }
@@ -726,15 +736,6 @@ function AgreementTab({
         />
       )}
 
-      {receiptTxn && (
-        <PaymentReceiptDialog
-          open={!!receiptTxn}
-          onClose={() => setReceiptTxn(null)}
-          transaction={receiptTxn}
-          tenantName={(tenancy as any)?.tenancy_tenants?.[0]?.tenants?.full_name}
-          propertyAddress={(tenancy as any)?.properties?.address}
-        />
-      )}
     </div>
   )
 }

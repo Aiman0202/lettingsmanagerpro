@@ -76,3 +76,6 @@ dist-ssr
 
 .vercel
 .vercel-tmp
+
+# Screenshot artifacts
+site-*.png
