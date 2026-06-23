@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Loader2, Save, AlertCircle, FileText } from 'lucide-react'
 import TemplateEditor, { type TemplateEditorHandle } from './TemplateEditor'
+import { useToast } from '@/contexts/ToastContext'
 
 interface TemplateEditorDialogProps {
   open: boolean
@@ -13,8 +14,14 @@ interface TemplateEditorDialogProps {
 
 export default function TemplateEditorDialog({ open, onClose }: TemplateEditorDialogProps) {
   const qc = useQueryClient()
+  const { success, error: showError } = useToast()
   const editorRef = useRef<TemplateEditorHandle>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Clear errors when dialog opens
+  useEffect(() => {
+    if (open) setSaveError(null)
+  }, [open])
 
   // Fetch existing template
   const { data: existingTemplate, isLoading: loadingTemplate } = useQuery({
@@ -39,23 +46,43 @@ export default function TemplateEditorDialog({ open, onClose }: TemplateEditorDi
       if (error) throw error
     },
     onSuccess: () => {
+      console.log('Template saved successfully')
       qc.invalidateQueries({ queryKey: ['agreement_defaults'] })
       qc.invalidateQueries({ queryKey: ['agreements'] })
+      success('Template Saved', 'The agreement template has been saved successfully.')
       onClose()
     },
     onError: (err: Error) => {
-      setSaveError(err.message)
+      console.error('Template save error:', err)
+      const msg = err.message || 'Failed to save template. Please try again.'
+      setSaveError(msg)
+      showError('Save Failed', msg)
     },
   })
 
   const handleSave = () => {
-    if (!editorRef.current) return
+    setSaveError(null)
+    if (!editorRef.current) {
+      const msg = 'Editor is not ready yet. Please wait a moment and try again.'
+      setSaveError(msg)
+      showError('Save Failed', msg)
+      return
+    }
     const { valid, error } = editorRef.current.validate()
     if (!valid) {
-      setSaveError(error ?? 'Validation failed')
+      const msg = error ?? 'Validation failed'
+      setSaveError(msg)
+      showError('Validation Error', msg)
       return
     }
     const html = editorRef.current.getHTML()
+    if (!html || html.length < 10) {
+      const msg = 'Template content is too short. Please add some content before saving.'
+      setSaveError(msg)
+      showError('Save Failed', msg)
+      return
+    }
+    console.log('Saving template, HTML length:', html.length)
     saveMutation.mutate(html)
   }
 
