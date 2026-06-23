@@ -35,6 +35,7 @@ export interface ReceiptData {
   companyAddress: string
   companyPhone: string
   companyEmail: string
+  logoUrl: string | null
 }
 
 /**

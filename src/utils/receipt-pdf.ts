@@ -46,7 +46,10 @@ export function generateReceiptHTML(r: ReceiptData): string {
 <body>
   <div class="header">
     <div class="receipt-no">${r.receiptNumber}</div>
-    <h1>${r.companyName}</h1>
+    ${r.logoUrl 
+      ? `<img src="${r.logoUrl}" alt="Company Logo" style="max-height:60px;max-width:200px;margin-bottom:8px;" />`
+      : `<h1>${r.companyName}</h1>`
+    }
     <div class="company">${r.companyAddress}<br>${r.companyPhone} · ${r.companyEmail}</div>
   </div>
 

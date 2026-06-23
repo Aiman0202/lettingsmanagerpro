@@ -30,10 +30,22 @@ export default function PaymentReceiptDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from('company_settings')
-        .select('company_name, address_line1, city, postcode, phone, email')
+        .select('company_name, address_line1, city, postcode, phone, email, logo_storage_path')
         .single()
       return data as any
     },
+  })
+
+  const { data: logoUrl } = useQuery({
+    queryKey: ['company-logo-receipt', company?.logo_storage_path],
+    queryFn: async () => {
+      if (!company?.logo_storage_path) return null
+      const { data } = await supabase.storage
+        .from('company-assets')
+        .createSignedUrl(company.logo_storage_path, 3600)
+      return data?.signedUrl ?? null
+    },
+    enabled: !!company?.logo_storage_path,
   })
 
   if (!transaction) return null
@@ -68,6 +80,7 @@ export default function PaymentReceiptDialog({
     companyAddress,
     companyPhone: company?.phone ?? '',
     companyEmail: company?.email ?? '',
+    logoUrl: logoUrl ?? null,
   }
 
   function handlePrint() {

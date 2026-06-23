@@ -58,6 +58,18 @@ export default function AgreementPrintView({ agreementId, showPreview = false, p
     },
   })
 
+  const { data: logoUrl } = useQuery({
+    queryKey: ['company-logo', companySettings?.logo_storage_path],
+    queryFn: async () => {
+      if (!companySettings?.logo_storage_path) return null
+      const { data } = await supabase.storage
+        .from('company-assets')
+        .createSignedUrl(companySettings.logo_storage_path, 3600)
+      return data?.signedUrl ?? null
+    },
+    enabled: !!companySettings?.logo_storage_path,
+  })
+
   const { data: attachments } = useQuery({
     queryKey: ['agreement-attachments', agreementId],
     queryFn: () => fetchAgreementAttachments(agreementId),
@@ -135,13 +147,14 @@ export default function AgreementPrintView({ agreementId, showPreview = false, p
 
       {/* Cover */}
       <div className="agreement-cover">
-        {company?.logo_storage_path && (
+        {logoUrl ? (
           <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-            <img src={company.logo_storage_path} alt="Company logo" style={{ maxHeight: '90px', maxWidth: '360px' }} />
+            <img src={logoUrl} alt="Company logo" style={{ maxHeight: '90px', maxWidth: '360px' }} />
           </div>
-        )}
-        {company?.company_name && (
-          <p style={{ fontSize: '14pt', fontWeight: 'bold', marginBottom: '4px' }}>{company.company_name}</p>
+        ) : (
+          company?.company_name && (
+            <p style={{ fontSize: '14pt', fontWeight: 'bold', marginBottom: '4px' }}>{company.company_name}</p>
+          )
         )}
         {agencyAddress && (
           <p style={{ fontSize: '9pt', color: '#666', marginBottom: '4px' }}>

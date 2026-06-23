@@ -154,9 +154,24 @@ function CompanySettings() {
                   <Image className="h-8 w-8 text-gray-300" />
                 </div>
               )}
-              <div className="flex-1">
+              <div className="flex-1 space-y-2">
                 <Input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} />
-                <p className="text-xs text-gray-500 mt-1">Upload PNG, JPG or SVG</p>
+                <p className="text-xs text-gray-500">
+                  Upload PNG, JPG or SVG. Logo will appear on receipts and agreements instead of company name text.
+                </p>
+                {logoUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setLogoUrl(null)
+                      setLogoFile(null)
+                      setForm({ ...form, logo_storage_path: '' })
+                    }}
+                  >
+                    Remove Logo
+                  </Button>
+                )}
               </div>
             </div>
           </div>
