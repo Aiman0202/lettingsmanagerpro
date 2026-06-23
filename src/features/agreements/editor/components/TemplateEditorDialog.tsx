@@ -42,7 +42,7 @@ export default function TemplateEditorDialog({ open, onClose }: TemplateEditorDi
   const saveMutation = useMutation({
     mutationFn: async (html: string) => {
       const { error } = await (supabase.from('agreement_defaults') as any)
-        .upsert({ key: 'default_ast', body_html: html }, { onConflict: 'key' })
+        .upsert({ key: 'default_ast', name: 'Assured Shorthold Tenancy Agreement', body_html: html }, { onConflict: 'key' })
       if (error) throw error
     },
     onSuccess: () => {
