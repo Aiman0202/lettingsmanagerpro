@@ -21,8 +21,12 @@ export function logAudit(params: {
           resource_id: params.resourceId ?? null,
           details: params.details ? (params.details as any) : null,
         } as any)
-    } catch {
-      // Silently ignore — audit logging should never break the app
+    } catch (err) {
+      // Log to console in development for debugging
+      if (import.meta.env.DEV) {
+        console.warn('Audit log failed:', err)
+      }
+      // In production, silently ignore — audit logging should never break the app
     }
   })()
 }

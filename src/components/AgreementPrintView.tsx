@@ -6,6 +6,7 @@ import { FileText, Paperclip, AlertCircle } from 'lucide-react'
 import { fetchAgreementAttachments, getAttachmentSignedUrl } from '@/utils/agreement-attachments'
 import type { PrintOptions } from '@/utils/print-options'
 import { printOptionsToCssVars } from '@/utils/print-options'
+import DOMPurify from 'dompurify'
 
 interface AgreementPrintViewProps {
   agreementId: string
@@ -195,7 +196,10 @@ export default function AgreementPrintView({ agreementId, showPreview = false, p
 
       {/* Agreement body — full comprehensive template from merged_html */}
       {agreement.merged_html && (
-        <div className="agreement-content" dangerouslySetInnerHTML={{ __html: agreement.merged_html }} />
+        <div 
+          className="agreement-content" 
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(agreement.merged_html) }} 
+        />
       )}
 
       {/* Appendix A: Compliance Certificates */}

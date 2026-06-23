@@ -37,29 +37,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   async function loadProfileAndPermissions(userId: string) {
-    const { data: prof } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    try {
+      const { data: prof, error: profileError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single()
 
-    if (prof) {
+      if (profileError || !prof) {
+        console.error('Failed to load user profile:', profileError)
+        return
+      }
+
       setProfile(prof as UserProfile)
 
-      const { data: roleData } = await supabase
+      const { data: roleData, error: roleError } = await supabase
         .from('roles')
         .select('id')
         .eq('name', prof.role)
         .single()
 
-      if (roleData) {
-        const { data: perms } = await supabase
-          .from('permissions')
-          .select('resource, can_read, can_write, can_delete')
-          .eq('role_id', roleData.id)
+      if (roleError || !roleData) {
+        console.error('Failed to load role:', roleError)
+        return
+      }
 
+      const { data: perms, error: permsError } = await supabase
+        .from('permissions')
+        .select('resource, can_read, can_write, can_delete')
+        .eq('role_id', roleData.id)
+
+      if (permsError) {
+        console.error('Failed to load permissions:', permsError)
+        setPermissions([])
+      } else {
         setPermissions((perms as Permission[]) ?? [])
       }
+    } catch (err) {
+      console.error('Unexpected error loading profile and permissions:', err)
     }
   }
 
