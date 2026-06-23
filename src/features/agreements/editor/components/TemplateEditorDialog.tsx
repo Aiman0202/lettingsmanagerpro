@@ -41,18 +41,18 @@ export default function TemplateEditorDialog({ open, onClose }: TemplateEditorDi
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async (html: string) => {
-      // First try to update existing row
+      // First try to update existing row (must add .select() to get data back)
       const { error: updateError, data: updateData } = await (supabase.from('agreement_defaults') as any)
         .update({ body_html: html, updated_at: new Date().toISOString() })
         .eq('key', 'default_ast')
+        .select('*')
       
-      // update() returns error only on failure, not when no rows match
-      // Check if any row was actually updated
+      // If update succeeded and returned data, we're done
       if (!updateError && updateData && updateData.length > 0) {
-        return // Successfully updated
+        return
       }
       
-      // If no row found, insert new one
+      // If update found no rows, insert new one
       const { error: insertError } = await (supabase.from('agreement_defaults') as any)
         .insert({ key: 'default_ast', name: 'Assured Shorthold Tenancy Agreement', body_html: html })
       if (insertError) throw insertError
