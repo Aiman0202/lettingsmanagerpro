@@ -1,4 +1,4 @@
-import { type Editor } from '@tiptap/react'
+import { EditorContent } from '@tiptap/react'
 import EditorToolbar from './EditorToolbar'
 import MergeFieldPanel from './MergeFieldPanel'
 import { useTemplateEditor } from '../hooks/useTemplateEditor'
@@ -30,7 +30,9 @@ export default function TemplateEditor({
       {/* Main editor area */}
       <div className="flex flex-col flex-1 min-w-0">
         <EditorToolbar editor={editor} />
-        {/* TipTap mounting point is inside the hook's useEditor */}
+        <div className="flex-1 overflow-y-auto">
+          <EditorContent editor={editor} />
+        </div>
 
         {/* Live HTML preview row */}
         {onHtmlChange && (
