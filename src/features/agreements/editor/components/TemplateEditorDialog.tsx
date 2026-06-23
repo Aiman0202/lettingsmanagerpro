@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Loader2, Save, AlertCircle, FileText } from 'lucide-react'
-import TemplateEditor from './TemplateEditor'
-import { useTemplateEditor } from '../hooks/useTemplateEditor'
+import TemplateEditor, { type TemplateEditorHandle } from './TemplateEditor'
 
 interface TemplateEditorDialogProps {
   open: boolean
@@ -14,7 +13,7 @@ interface TemplateEditorDialogProps {
 
 export default function TemplateEditorDialog({ open, onClose }: TemplateEditorDialogProps) {
   const qc = useQueryClient()
-  const [htmlOutput, setHtmlOutput] = useState<string>('')
+  const editorRef = useRef<TemplateEditorHandle>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
   // Fetch existing template
@@ -31,25 +30,6 @@ export default function TemplateEditorDialog({ open, onClose }: TemplateEditorDi
     },
     enabled: open,
   })
-
-  const editorHook = useTemplateEditor({
-    initialHtml: existingTemplate?.body_html ?? '',
-    placeholder: 'Start building your AST template…',
-  })
-
-  // Sync editor changes to htmlOutput
-  const syncHtml = useCallback(() => {
-    const html = editorHook.getHTML()
-    setHtmlOutput(html)
-    setSaveError(null)
-  }, [editorHook])
-
-  // Initial sync when template loads
-  useEffect(() => {
-    if (existingTemplate) {
-      syncHtml()
-    }
-  }, [existingTemplate, syncHtml])
 
   // Save mutation
   const saveMutation = useMutation({
@@ -69,13 +49,13 @@ export default function TemplateEditorDialog({ open, onClose }: TemplateEditorDi
   })
 
   const handleSave = () => {
-    const { valid, error } = editorHook.validate()
+    if (!editorRef.current) return
+    const { valid, error } = editorRef.current.validate()
     if (!valid) {
       setSaveError(error ?? 'Validation failed')
       return
     }
-    const html = editorHook.getHTML()
-    setHtmlOutput(html)
+    const html = editorRef.current.getHTML()
     saveMutation.mutate(html)
   }
 
@@ -132,23 +112,11 @@ export default function TemplateEditorDialog({ open, onClose }: TemplateEditorDi
             </div>
           ) : (
             <TemplateEditor
-              editor={editorHook}
-              onHtmlChange={setHtmlOutput}
+              ref={editorRef}
+              initialHtml={existingTemplate?.body_html ?? ''}
             />
           )}
         </div>
-
-        {/* Hidden output for debugging */}
-        {htmlOutput && (
-          <div className="border-t border-gray-200 bg-gray-50 px-4 py-1.5 shrink-0">
-            <details className="text-xs text-gray-400">
-              <summary className="cursor-pointer hover:text-gray-600">HTML output ({htmlOutput.length} chars)</summary>
-              <pre className="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] text-gray-500">
-                {htmlOutput.slice(0, 2000)}{htmlOutput.length > 2000 ? '…' : ''}
-              </pre>
-            </details>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   )

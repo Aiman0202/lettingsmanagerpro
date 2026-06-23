@@ -1,24 +1,41 @@
+import { useEffect, forwardRef, useImperativeHandle } from 'react'
 import { EditorContent } from '@tiptap/react'
 import EditorToolbar from './EditorToolbar'
 import MergeFieldPanel from './MergeFieldPanel'
 import { useTemplateEditor } from '../hooks/useTemplateEditor'
+import { preprocessTemplateHTML } from '../utils/preprocessTemplateHTML'
+
+export interface TemplateEditorHandle {
+  getHTML: () => string
+  validate: () => { valid: boolean; error: string | null }
+}
 
 interface TemplateEditorProps {
   initialHtml?: string
   onHtmlChange?: (html: string) => void
   placeholder?: string
-  /** Provide an external editor if using the hook externally (e.g. from dialog) */
-  editor?: ReturnType<typeof useTemplateEditor>
 }
 
-export default function TemplateEditor({
+const TemplateEditor = forwardRef<TemplateEditorHandle, TemplateEditorProps>(function TemplateEditor({
   initialHtml = '',
   onHtmlChange,
   placeholder,
-  editor: externalEditor,
-}: TemplateEditorProps) {
-  const internalEditor = useTemplateEditor({ initialHtml, placeholder })
-  const { editor, insertMergeField, getHTML } = externalEditor ?? internalEditor
+}, ref) {
+  const { editor, insertMergeField, getHTML, validate } = useTemplateEditor({
+    initialHtml,
+    placeholder,
+  })
+
+  // Expose getHTML and validate to parent via ref
+  useImperativeHandle(ref, () => ({ getHTML, validate }), [getHTML, validate])
+
+  // Sync editor content when initialHtml changes (e.g. after template loads from DB)
+  useEffect(() => {
+    if (editor && initialHtml) {
+      const processed = preprocessTemplateHTML(initialHtml)
+      editor.commands.setContent(processed)
+    }
+  }, [editor, initialHtml])
 
   const handleInsert = (fieldKey: string) => {
     insertMergeField(fieldKey)
@@ -33,23 +50,12 @@ export default function TemplateEditor({
         <div className="flex-1 overflow-y-auto">
           <EditorContent editor={editor} />
         </div>
-
-        {/* Live HTML preview row */}
-        {onHtmlChange && (
-          <div className="border-t border-gray-200 bg-gray-50 px-4 py-2">
-            <button
-              type="button"
-              onClick={() => onHtmlChange(getHTML())}
-              className="text-xs text-gray-500 hover:text-gray-700 underline"
-            >
-              Sync HTML output
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Side panel */}
       <MergeFieldPanel onInsert={handleInsert} />
     </div>
   )
-}
+})
+
+export default TemplateEditor
