@@ -274,7 +274,7 @@ function UsersSettings() {
     setEditingUser(user)
     setForm({
       full_name: user.full_name ?? '',
-      email: '',
+      email: user.email ?? '',
       role_id: user.role_id ?? (roles?.find((r: any) => r.name === user.role) as any)?.id ?? '',
       is_active: user.is_active ?? true,
     })
@@ -331,6 +331,19 @@ function UsersSettings() {
     qc.invalidateQueries({ queryKey: ['staff-users'] })
   }
 
+  async function resetPassword(email: string) {
+    if (!email) return
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`,
+    })
+    if (error) {
+      console.error('Password reset failed:', error)
+      alert('Failed to send password reset email: ' + error.message)
+    } else {
+      alert(`Password reset email sent to ${email}`)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {isAdmin && (
@@ -358,7 +371,13 @@ function UsersSettings() {
                   </Select>
                 </div>
               </div>
-              {!editingUser && (
+              {editingUser ? (
+                <div className="space-y-1.5">
+                  <Label>Email</Label>
+                  <Input type="email" value={form.email} disabled className="bg-gray-50" />
+                  <p className="text-xs text-gray-500">Email cannot be changed here. Contact admin to change email.</p>
+                </div>
+              ) : (
                 <div className="space-y-1.5">
                   <Label>Email *</Label>
                   <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
@@ -383,17 +402,20 @@ function UsersSettings() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
               {isAdmin && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {(users ?? []).length === 0 ? (
-              <TableRow><TableCell colSpan={isAdmin ? 4 : 3} className="text-center py-8 text-gray-400">No staff users</TableCell></TableRow>
+              <TableRow><TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-8 text-gray-400">No staff users</TableCell></TableRow>
             ) : (users ?? []).map((u: any) => (
               <TableRow key={u.id}>
                 <TableCell className="font-medium">{u.full_name}</TableCell>
+                <TableCell className="text-sm text-gray-500">{u.email ?? '—'}</TableCell>
                 <TableCell>
                   <span className="capitalize px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs font-medium">
                     {u.roles?.name ?? u.role ?? '—'}
@@ -402,12 +424,16 @@ function UsersSettings() {
                 <TableCell>
                   <Badge variant={u.is_active ? 'success' : 'secondary'}>{u.is_active ? 'Active' : 'Inactive'}</Badge>
                 </TableCell>
+                <TableCell className="text-sm text-gray-500">{formatDate(u.created_at)}</TableCell>
                 {isAdmin && (
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>Edit</Button>
                       <Button variant="ghost" size="sm" onClick={() => toggleActive(u)}>
                         {u.is_active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => resetPassword(u.email)}>
+                        Reset Password
                       </Button>
                     </div>
                   </TableCell>
