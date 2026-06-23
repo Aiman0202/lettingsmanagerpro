@@ -206,9 +206,21 @@ export default function PropertiesPage() {
                 {isVisible('beds') && <TableCell className="hidden sm:table-cell">{p.bedrooms ?? '—'}</TableCell>}
                 {isVisible('landlord') && <TableCell className="hidden md:table-cell truncate max-w-[150px]">{p.landlords?.full_name ?? '—'}</TableCell>}
                 {isVisible('status') && <TableCell>
-                  <Badge variant={statusVariant[p.status as PropertyStatus] ?? 'secondary'}>
-                    {p.status}
-                  </Badge>
+                  <select
+                    value={p.status}
+                    onChange={(e) => updateStatusMutation.mutate({ id: p.id, status: e.target.value as PropertyStatus })}
+                    className={`text-xs font-medium rounded-full px-2 py-0.5 border cursor-pointer ${
+                      p.status === 'available' ? 'bg-green-50 text-green-700 border-green-200' :
+                      p.status === 'let' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      p.status === 'maintenance' ? 'bg-red-50 text-red-700 border-red-200' :
+                      'bg-gray-50 text-gray-700 border-gray-200'
+                    }`}
+                  >
+                    <option value="available">available</option>
+                    <option value="let">let</option>
+                    <option value="maintenance">maintenance</option>
+                    <option value="inactive">inactive</option>
+                  </select>
                 </TableCell>}
                 {isVisible('readiness') && <TableCell className="hidden lg:table-cell">
                   {(() => {
@@ -222,14 +234,13 @@ export default function PropertiesPage() {
                 </TableCell>}
                 {isVisible('added') && <TableCell>{formatDate(p.created_at)}</TableCell>}
                 <TableCell className="no-print">
-                  <div className="flex items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-1">
                     <Link to={`/properties/${p.id}`}>
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0"><Eye className="h-4 w-4" /></Button>
                     </Link>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="hidden sm:inline-flex"
                       onClick={() => { setEditId(p.id); setShowForm(true) }}
                     >
                       Edit
@@ -237,46 +248,46 @@ export default function PropertiesPage() {
                     {p.status !== 'available' && p.status !== 'let' && (
                       <Button
                         variant="ghost" size="sm"
-                        className="hidden sm:inline-flex text-green-600 hover:text-green-700 hover:bg-green-50"
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
                         title="Make Available"
                         onClick={() => updateStatusMutation.mutate({ id: p.id, status: 'available' })}
                       >
-                        <ArrowUpRight className="h-4 w-4" />
+                        <ArrowUpRight className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Available</span>
                       </Button>
                     )}
                     {p.status === 'available' && (
                       <Button
                         variant="ghost" size="sm"
-                        className="hidden sm:inline-flex text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                         title="Mark as Let"
                         onClick={() => updateStatusMutation.mutate({ id: p.id, status: 'let' })}
                       >
-                        <CheckCircle className="h-4 w-4" />
+                        <CheckCircle className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Let</span>
                       </Button>
                     )}
                     {p.status !== 'inactive' ? (
                       <Button
                         variant="ghost" size="sm"
-                        className="hidden sm:inline-flex text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                        className="text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                         title="Deactivate"
                         onClick={() => { if (confirm('Deactivate this property? It will be hidden from active listings.')) updateStatusMutation.mutate({ id: p.id, status: 'inactive' }) }}
                       >
-                        <Power className="h-4 w-4" />
+                        <Power className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Deactivate</span>
                       </Button>
                     ) : (
                       <Button
                         variant="ghost" size="sm"
-                        className="hidden sm:inline-flex text-green-600 hover:text-green-700 hover:bg-green-50"
+                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
                         title="Activate"
                         onClick={() => updateStatusMutation.mutate({ id: p.id, status: 'available' })}
                       >
-                        <Power className="h-4 w-4" />
+                        <Power className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Activate</span>
                       </Button>
                     )}
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="hidden sm:inline-flex text-red-500 hover:text-red-700 hover:bg-red-50"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
                       onClick={() => {
                         if (confirm('Permanently delete this property? This cannot be undone.')) deleteMutation.mutate(p.id)
                       }}
