@@ -5,6 +5,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 export default defineConfig({
+  define: {
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || 'https://cgevcmjyildohyqxrxkl.supabase.co'),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_LT7ZaEgcGTF1B3CMpaq1QQ_ohjximOU'),
+  },
   plugins: [
     react(),
     tailwindcss(),
