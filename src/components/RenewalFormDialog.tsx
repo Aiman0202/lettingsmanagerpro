@@ -18,9 +18,10 @@ interface RenewalFormDialogProps {
   tenancyId: string
   currentEndDate: string
   currentRentAmount: number
+  onRenewed?: () => void
 }
 
-export default function RenewalFormDialog({ open, onClose, tenancyId, currentEndDate, currentRentAmount }: RenewalFormDialogProps) {
+export default function RenewalFormDialog({ open, onClose, tenancyId, currentEndDate, currentRentAmount, onRenewed }: RenewalFormDialogProps) {
   const qc = useQueryClient()
   const { success, error: showError } = useToast()
   const [saving, setSaving] = useState(false)
@@ -87,6 +88,7 @@ export default function RenewalFormDialog({ open, onClose, tenancyId, currentEnd
       qc.invalidateQueries({ queryKey: ['tenancy-timeline', tenancyId] })
       qc.invalidateQueries({ queryKey: ['tenancies'] })
       success('Tenancy renewed', `End date updated to ${formatDate(form.new_end_date)}`)
+      onRenewed?.()
       onClose()
     } catch (err) {
       showError('Renewal failed', handleApiError(err, 'renew tenancy'))

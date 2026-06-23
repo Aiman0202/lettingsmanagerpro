@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, FileText, Calendar, PoundSterling, Users, Plus, ClipboardCheck, AlertTriangle, ClipboardList, ChevronDown, ChevronRight, RefreshCw, Pencil, FilePen, PenLine, Send, CheckCircle, Eye, Loader2, Receipt } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -39,6 +40,10 @@ export default function TenancyDetailPage() {
   const [showCouncil, setShowCouncil] = useState(false)
   const [creatingAgreement, setCreatingAgreement] = useState(false)
   const [receiptTxn, setReceiptTxn] = useState<any>(null)
+
+  // Workflow transition dialogs
+  const [showSignCompleteDialog, setShowSignCompleteDialog] = useState(false)
+  const [showRenewPromptDialog, setShowRenewPromptDialog] = useState(false)
 
   const { data: companySettings } = useQuery({
     queryKey: ['company-settings-tenancy'],
@@ -145,12 +150,21 @@ export default function TenancyDetailPage() {
     setCreatingAgreement(false)
   }
 
+  function handleAgreementSigned() {
+    setShowSignCompleteDialog(true)
+  }
+
+  function handleRenewed() {
+    setShowRenewPromptDialog(true)
+  }
+
   if (isLoading) return <div className="p-6 text-gray-400">Loading…</div>
   if (!tenancy) return <div className="p-6 text-gray-400">Tenancy not found.</div>
 
   const t = tenancy as any
   const tenants = (t.tenancy_tenants ?? []).map((tt: any) => tt.tenants)
   const property = t.properties
+  const hasMoveInChecklist = (checklists as any[] ?? []).some((c: any) => c.type === 'move_in')
 
   return (
     <div className="space-y-6">
@@ -222,6 +236,51 @@ export default function TenancyDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Workflow Progress */}
+      <Card className="no-print">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-center gap-0">
+            {[
+              { key: 'agreement', label: 'Agreement', done: !!agreement },
+              { key: 'sign', label: 'Sign', done: agreement?.status === 'signed' },
+              { key: 'movein', label: 'Move-In', done: hasMoveInChecklist },
+              { key: 'active', label: 'Active', done: t.status === 'active' },
+            ].map((step, i, arr) => (
+              <div key={step.key} className="flex items-center">
+                <div className="flex flex-col items-center">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center ${
+                    step.done ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+                  }`}>
+                    {step.done ? <CheckCircle className="h-4 w-4" /> : <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />}
+                  </div>
+                  <span className={`text-[11px] mt-1 whitespace-nowrap ${
+                    step.done ? 'text-green-700 font-medium' : 'text-gray-400'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+                {i < arr.length - 1 && (
+                  <div className={`w-8 sm:w-16 h-px mx-1 sm:mx-2 mb-5 ${
+                    step.done ? 'bg-green-300' : 'bg-gray-200'
+                  }`} />
+                )}
+              </div>
+            ))}
+            {(t.status === 'ending_soon' || t.status === 'expired' || t.status === 'active') && agreement?.status === 'signed' && hasMoveInChecklist && (
+              <>
+                <div className="w-8 sm:w-16 h-px mx-1 sm:mx-2 mb-5 bg-amber-200" />
+                <div className="flex flex-col items-center">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center bg-amber-100 text-amber-700">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-[11px] mt-1 text-amber-700 font-medium whitespace-nowrap">Renew / End</span>
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tab Navigation */}
       <div className="flex gap-1 border-b border-gray-200">
@@ -503,6 +562,7 @@ export default function TenancyDetailPage() {
           showCouncil={showCouncil}
           setShowCouncil={setShowCouncil}
           onRefresh={() => qc.invalidateQueries({ queryKey: ['tenancy-agreement', id] })}
+          onAgreementSigned={handleAgreementSigned}
         />
       )}
 
@@ -541,6 +601,7 @@ export default function TenancyDetailPage() {
         tenancyId={id!}
         currentEndDate={t.end_date}
         currentRentAmount={t.rent_amount}
+        onRenewed={handleRenewed}
       />
 
       <AmendmentFormDialog
@@ -566,6 +627,54 @@ export default function TenancyDetailPage() {
           propertyAddress={(tenancy as any)?.properties?.address}
         />
       )}
+
+      {/* Sign Complete → Move-In prompt */}
+      <Dialog open={showSignCompleteDialog} onOpenChange={() => setShowSignCompleteDialog(false)}>
+        <DialogContent onClose={() => setShowSignCompleteDialog(false)} className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-700">
+              <CheckCircle className="h-5 w-5" /> Agreement Signed
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 text-center space-y-3">
+            <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+            <p className="text-gray-700">The tenancy agreement has been signed by all parties.</p>
+            <p className="text-sm text-gray-500">Would you like to proceed with the Move-In checklist?</p>
+          </div>
+          <DialogFooter className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => setShowSignCompleteDialog(false)}>Later</Button>
+            <Button onClick={() => { setShowSignCompleteDialog(false); setChecklistType('move_in'); setShowChecklist(true); setActiveTab('overview') }}>
+              Start Move-In
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Renewal → New Agreement prompt */}
+      <Dialog open={showRenewPromptDialog} onOpenChange={() => setShowRenewPromptDialog(false)}>
+        <DialogContent onClose={() => setShowRenewPromptDialog(false)} className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-green-600" /> Tenancy Renewed
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 text-center space-y-3">
+            <RefreshCw className="h-12 w-12 text-green-500 mx-auto" />
+            <p className="text-gray-700">The tenancy has been renewed successfully.</p>
+            <p className="text-sm text-gray-500">Would you like to create a new agreement for the renewed period?</p>
+          </div>
+          <DialogFooter className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => setShowRenewPromptDialog(false)}>Skip</Button>
+            <Button onClick={async () => {
+              setShowRenewPromptDialog(false)
+              setActiveTab('agreement')
+              await handleCreateAgreement()
+            }}>
+              Create New Agreement
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -583,6 +692,7 @@ function AgreementTab({
   showCouncil,
   setShowCouncil,
   onRefresh,
+  onAgreementSigned,
 }: {
   tenancyId: string
   agreement: any
@@ -596,6 +706,7 @@ function AgreementTab({
   showCouncil: boolean
   setShowCouncil: (v: boolean) => void
   onRefresh: () => void
+  onAgreementSigned: () => void
 }) {
   if (agreementLoading) {
     return (
@@ -723,7 +834,7 @@ function AgreementTab({
         <SignatureCaptureModal
           agreementId={agreement.id}
           onClose={() => setShowSign(false)}
-          onCompleted={() => { setShowSign(false); onRefresh() }}
+          onCompleted={() => { setShowSign(false); onRefresh(); onAgreementSigned() }}
         />
       )}
 
