@@ -98,11 +98,6 @@
     @bottom-center { content: element(footer); }
   }
 
-  /* Hide everything except agreement content */
-  body > * {
-    display: none !important;
-  }
-  
   body {
     background: white !important;
     color: black !important;
@@ -110,9 +105,13 @@
     print-color-adjust: exact;
   }
 
-  /* Show only the agreement print view */
-  .agreement-print,
-  .agreement-preview-screen {
+  /* Hide all UI chrome except agreement content */
+  body.printing-agreement > * {
+    display: none !important;
+  }
+
+  /* Show the dialog content when printing */
+  body.printing-agreement [class*="DialogContent"] {
     display: block !important;
     position: static !important;
     width: 100% !important;
@@ -125,9 +124,14 @@
     padding: 0 !important;
   }
 
-  /* Hide UI chrome and settings */
-  aside, nav, header, .no-print, .print-hide,
-  [class*="dialog"], [class*="Dialog"], [class*="modal"] {
+  /* Hide dialog header and buttons when printing */
+  body.printing-agreement .print-hide,
+  body.printing-agreement [class*="DialogHeader"] {
+    display: none !important;
+  }
+
+  /* Hide navigation and UI chrome for non-agreement pages */
+  aside, nav, header, .no-print, .print-hide {
     display: none !important;
   }
 

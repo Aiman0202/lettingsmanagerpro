@@ -21,7 +21,16 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
     const root = document.documentElement
     Object.entries(vars).forEach(([key, val]) => root.style.setProperty(key, val))
     root.dataset.pageNumbering = printOptions.pageNumbering
+    
+    // Add printing class to body for better print control
+    document.body.classList.add('printing-agreement')
+    
     window.print()
+    
+    // Remove class after print dialog closes
+    setTimeout(() => {
+      document.body.classList.remove('printing-agreement')
+    }, 1000)
   }
 
   return (
