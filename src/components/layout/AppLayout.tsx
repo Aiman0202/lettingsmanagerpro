@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Building2, Users, UserCheck, FileText, Wrench,
   PoundSterling, FolderOpen, FilePen, Settings, LogOut, ChevronLeft,
   ChevronRight, Bell, Menu, X, ClipboardList, ShieldCheck, Sparkles,
-  Activity,
+  Activity, Calendar,
 } from 'lucide-react'
 import { Breadcrumbs } from '@/components/ui/breadcrumb'
 import { NotificationsDropdown } from '@/components/NotificationsDropdown'
@@ -36,6 +36,7 @@ const navGroups = [
     label: 'Operations',
     items: [
       { label: 'Maintenance', href: '/maintenance', icon: Wrench, badgeKey: 'open-maintenance' },
+      { label: 'Viewings', href: '/viewings', icon: Calendar, badgeKey: null },
       { label: 'Finance', href: '/finance', icon: PoundSterling, badgeKey: null },
       { label: 'Compliance', href: '/compliance', icon: ShieldCheck, badgeKey: 'expiring-compliance' },
     ],

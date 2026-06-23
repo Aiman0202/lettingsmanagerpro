@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
-import { Building2, Users, ClipboardList, Wrench, PoundSterling, AlertTriangle, ArrowRight, Sparkles, FileCheck, Home, Calendar } from 'lucide-react'
+import { Building2, Users, ClipboardList, Wrench, PoundSterling, AlertTriangle, ArrowRight, Sparkles, FileCheck, Home, Calendar, Clock, TrendingUp, TrendingDown, Minus, Activity, BarChart3, Percent, Banknote, Timer, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 function StatCard({ title, value, icon: Icon, color, href }: {
@@ -140,6 +140,94 @@ export default function DashboardPage() {
     },
   })
 
+  // Today's viewings
+  const { data: todayViewings } = useQuery({
+    queryKey: ['dashboard-viewings'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0]
+      const { data } = await (supabase.from('property_viewings') as any)
+        .select('*, properties(address)')
+        .eq('status', 'scheduled')
+        .gte('scheduled_at', `${today}T00:00:00`)
+        .lte('scheduled_at', `${today}T23:59:59`)
+        .order('scheduled_at')
+      return (data ?? []) as any[]
+    },
+  })
+
+  // Analytics queries
+  const { data: analytics } = useQuery({
+    queryKey: ['dashboard-analytics'],
+    queryFn: async () => {
+      const today = new Date().toISOString().split('T')[0]
+      const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+
+      // Void period: avg days for available properties since last tenancy ended
+      const { data: availableProps } = await supabase
+        .from('properties')
+        .select('id, updated_at')
+        .eq('status', 'available')
+      const voidDays = (availableProps ?? []).length > 0
+        ? Math.round((availableProps ?? []).reduce((sum, p) => {
+            const days = Math.ceil((Date.now() - new Date((p as any).updated_at).getTime()) / (1000 * 60 * 60 * 24))
+            return sum + Math.max(days, 0)
+          }, 0) / (availableProps ?? []).length)
+        : 0
+
+      // Avg tenancy length
+      const { data: allTenancies } = await supabase
+        .from('tenancies')
+        .select('start_date, end_date')
+      const avgLength = (allTenancies ?? []).length > 0
+        ? Math.round((allTenancies ?? []).reduce((sum, t) => {
+            const months = Math.ceil((new Date((t as any).end_date).getTime() - new Date((t as any).start_date).getTime()) / (1000 * 60 * 60 * 24 * 30))
+            return sum + months
+          }, 0) / (allTenancies ?? []).length)
+        : 0
+
+      // Rent collection rate this month
+      const { data: monthTxns } = await supabase
+        .from('rent_transactions')
+        .select('status')
+        .gte('due_date', firstOfMonth)
+        .lte('due_date', today)
+      const totalTxns = (monthTxns ?? []).length
+      const paidTxns = (monthTxns ?? []).filter((t: any) => t.status === 'paid').length
+      const collectionRate = totalTxns > 0 ? Math.round((paidTxns / totalTxns) * 100) : 100
+
+      // Open maintenance aging
+      const { data: openMaint } = await supabase
+        .from('maintenance_requests')
+        .select('created_at')
+        .in('status', ['open', 'in_progress'])
+      const avgMaintAge = (openMaint ?? []).length > 0
+        ? Math.round((openMaint ?? []).reduce((sum, m) => {
+            const days = Math.ceil((Date.now() - new Date((m as any).created_at).getTime()) / (1000 * 60 * 60 * 24))
+            return sum + Math.max(days, 0)
+          }, 0) / (openMaint ?? []).length)
+        : 0
+
+      // Monthly rent income
+      const { data: activeTnc } = await supabase
+        .from('tenancies')
+        .select('rent_amount')
+        .eq('status', 'active')
+      const monthlyIncome = (activeTnc ?? []).reduce((sum, t: any) => sum + (t.rent_amount ?? 0), 0)
+
+      // Compliance coverage
+      const { data: allProps } = await supabase.from('properties').select('id', { count: 'exact', head: true })
+      const { data: allCompliance } = await supabase
+        .from('property_compliance')
+        .select('type, expiry_date')
+      const propCount = (allProps as any)?.length ?? 0
+      const requiredCount = propCount * 3 // gas_safe, eicr, epc per property
+      const validCount = (allCompliance ?? []).filter((c: any) => new Date(c.expiry_date) > new Date()).length
+      const complianceCoverage = requiredCount > 0 ? Math.round((validCount / requiredCount) * 100) : 100
+
+      return { voidDays, avgLength, collectionRate, avgMaintAge, monthlyIncome, complianceCoverage }
+    },
+  })
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
@@ -265,6 +353,88 @@ export default function DashboardPage() {
         <RecentActivity />
         <UpcomingAlerts />
       </div>
+
+      {/* Today's Viewings */}
+      {(todayViewings ?? []).length > 0 && (
+        <Card className="border-blue-200">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-blue-600" /> Today's Viewings ({(todayViewings ?? []).length})
+            </CardTitle>
+            <Link to="/viewings">
+              <Button variant="outline" size="sm">View All <ArrowRight className="h-3 w-3 ml-1" /></Button>
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {(todayViewings ?? []).slice(0, 6).map((v: any) => (
+                <div key={v.id} className="border border-blue-100 rounded-lg p-2.5 text-sm bg-blue-50/30">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-blue-600">{new Date(v.scheduled_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="font-medium truncate">{v.properties?.address ?? '—'}</span>
+                  </div>
+                  <p className="text-gray-500 text-xs mt-0.5">{v.prospect_name} · {v.duration_minutes}min</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Portfolio Analytics */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-gray-600" /> Portfolio Analytics
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <KpiCard
+              label="Void Period"
+              value={`${analytics?.voidDays ?? 0}d`}
+              sublabel="avg days vacant"
+              icon={Timer}
+              color={analytics?.voidDays !== undefined && analytics.voidDays > 30 ? 'text-red-600' : 'text-green-600'}
+            />
+            <KpiCard
+              label="Avg Tenancy"
+              value={`${analytics?.avgLength ?? 0}mo`}
+              sublabel="avg length"
+              icon={Clock}
+              color="text-blue-600"
+            />
+            <KpiCard
+              label="Collection Rate"
+              value={`${analytics?.collectionRate ?? 100}%`}
+              sublabel="this month"
+              icon={Percent}
+              color={analytics?.collectionRate !== undefined && analytics.collectionRate < 80 ? 'text-red-600' : 'text-green-600'}
+            />
+            <KpiCard
+              label="Maintenance Age"
+              value={`${analytics?.avgMaintAge ?? 0}d`}
+              sublabel="avg open days"
+              icon={Wrench}
+              color={analytics?.avgMaintAge !== undefined && analytics.avgMaintAge > 14 ? 'text-red-600' : 'text-green-600'}
+            />
+            <KpiCard
+              label="Monthly Income"
+              value={`£${(analytics?.monthlyIncome ?? 0).toLocaleString()}`}
+              sublabel="active rent"
+              icon={Banknote}
+              color="text-green-600"
+            />
+            <KpiCard
+              label="Compliance"
+              value={`${analytics?.complianceCoverage ?? 100}%`}
+              sublabel="coverage"
+              icon={ShieldCheck}
+              color={analytics?.complianceCoverage !== undefined && analytics.complianceCoverage < 70 ? 'text-red-600' : 'text-green-600'}
+            />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -295,6 +465,19 @@ function PipelineStep({ label, count, color }: { label: string; count: number; c
         <span className="text-white text-lg sm:text-xl font-bold">{count}</span>
       </div>
       <p className="text-xs text-gray-600 whitespace-pre-line leading-tight">{label}</p>
+    </div>
+  )
+}
+
+function KpiCard({ label, value, sublabel, icon: Icon, color }: {
+  label: string; value: string; sublabel: string; icon: React.ElementType; color: string
+}) {
+  return (
+    <div className="bg-gray-50 rounded-lg p-3 text-center">
+      <Icon className={`h-5 w-5 mx-auto mb-1 ${color}`} />
+      <p className={`text-xl font-bold ${color}`}>{value}</p>
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-[10px] text-gray-400">{sublabel}</p>
     </div>
   )
 }

@@ -8,12 +8,13 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { ArrowLeft, ChevronDown, ChevronRight, Save, UserPlus, CheckCircle, Users, FileText, Trash2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Save, UserPlus, CheckCircle, Users, FileText, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { generateRentSchedule } from '@/utils/finance'
 import { generateAgreementForTenancy } from '@/utils/agreements'
 import { formatCurrency } from '@/lib/utils'
 import ChecklistFormDialog from '@/components/ChecklistFormDialog'
 import { generateNextReference } from '@/utils/references'
+import { calculateReadinessScore, readinessLabel } from '@/utils/compliance-score'
 
 export default function TenancyCreatePage() {
   const navigate = useNavigate()
@@ -85,6 +86,21 @@ export default function TenancyCreatePage() {
       if (existing) {
         setSaveError(
           `This property already has an active tenancy (${ (existing as any).reference_number ?? 'unknown ref' }). End or expire it before creating a new one.`
+        )
+        setSaving(false)
+        return
+      }
+
+      // 0b. Compliance readiness check
+      const { data: propCompliance } = await supabase
+        .from('property_compliance')
+        .select('type, expiry_date')
+        .eq('property_id', form.property_id)
+      const readiness = calculateReadinessScore((propCompliance ?? []).map((c: any) => ({ type: c.type, expiry_date: c.expiry_date })))
+      if (readiness.status === 'not_ready') {
+        const gaps = readiness.items.filter((i) => i.state === 'missing' || i.state === 'expired').map((i) => i.type.replace('_', ' ')).join(', ')
+        setSaveError(
+          `Property is not compliance-ready. Missing or expired: ${gaps}. Please update compliance before creating an active tenancy.`
         )
         setSaving(false)
         return

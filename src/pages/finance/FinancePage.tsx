@@ -9,13 +9,15 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Plus, PoundSterling, FileText, AlertTriangle } from 'lucide-react'
+import { Plus, PoundSterling, FileText, AlertTriangle, Receipt } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { ColumnVisibility } from '@/components/ui/ColumnVisibility'
 import { useColumnVisibility, type ColumnConfig } from '@/hooks/useColumnVisibility'
 import { FormField } from '@/components/ui/FormField'
 import { paymentSchema, expenseSchema, zodErrors } from '@/schemas/forms'
+import PaymentReceiptDialog from '@/components/PaymentReceiptDialog'
+import { calculateRunningBalance, calculatePeriod } from '@/utils/receipt'
 
 const statusVariant: Record<string, any> = {
   paid: 'success', pending: 'outline', overdue: 'destructive', partial: 'warning',
@@ -28,11 +30,13 @@ const RENT_COLUMNS: ColumnConfig[] = [
   { key: 'status', label: 'Status', defaultVisible: true },
   { key: 'paid_date', label: 'Paid Date', defaultVisible: true },
   { key: 'method', label: 'Method', defaultVisible: true },
+  { key: 'receipt', label: 'Receipt', defaultVisible: true },
 ]
 
 export default function FinancePage() {
   const [activeTab, setActiveTab] = useState<'rent' | 'expenses' | 'fees'>('rent')
   const [showPayment, setShowPayment] = useState(false)
+  const [receiptTxn, setReceiptTxn] = useState<any>(null)
   const [selectedTenancyId, setSelectedTenancyId] = useState('')
   const { isVisible, toggle } = useColumnVisibility('finance-rent', RENT_COLUMNS)
 
@@ -41,7 +45,7 @@ export default function FinancePage() {
     queryFn: async () => {
       const { data } = await supabase
         .from('rent_transactions')
-        .select('*, tenancies(properties(address), landlords(full_name))')
+        .select('*, tenancies(properties(address), landlords(full_name), tenancy_tenants(tenants(full_name)))')
         .order('due_date', { ascending: false })
         .limit(50)
       return data ?? []
@@ -179,6 +183,7 @@ export default function FinancePage() {
                 {isVisible('status') && <TableHead>Status</TableHead>}
                 {isVisible('paid_date') && <TableHead>Paid Date</TableHead>}
                 {isVisible('method') && <TableHead>Method</TableHead>}
+                {isVisible('receipt') && <TableHead>Receipt</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -194,6 +199,19 @@ export default function FinancePage() {
                   {isVisible('status') && <TableCell><Badge variant={statusVariant[t.status]}>{t.status}</Badge></TableCell>}
                   {isVisible('paid_date') && <TableCell>{formatDate(t.paid_date)}</TableCell>}
                   {isVisible('method') && <TableCell>{t.payment_method ?? '—'}</TableCell>}
+                  {isVisible('receipt') && (
+                    <TableCell>
+                      {t.status === 'paid' && (
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => setReceiptTxn(t)}
+                          title="View receipt"
+                        >
+                          <Receipt className="h-4 w-4 text-blue-600" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -237,6 +255,16 @@ export default function FinancePage() {
         onClose={() => setShowPayment(false)}
         onSaved={() => { setShowPayment(false); qc.invalidateQueries({ queryKey: ['rent-transactions'] }) }}
       />
+
+      {receiptTxn && (
+        <PaymentReceiptDialog
+          open={!!receiptTxn}
+          onClose={() => setReceiptTxn(null)}
+          transaction={receiptTxn}
+          tenantName={receiptTxn.tenancies?.tenancy_tenants?.[0]?.tenants?.full_name}
+          propertyAddress={receiptTxn.tenancies?.properties?.address}
+        />
+      )}
     </div>
   )
 }
@@ -349,6 +377,7 @@ function RecordPaymentDialog({ open, onClose, onSaved }: {
 }) {
   const [form, setForm] = useState({
     tenancy_id: '', amount: '', due_date: '', paid_date: '', payment_method: 'bank_transfer', status: 'paid', notes: '',
+    period_start: '', period_end: '', amount_paid: '',
   })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -382,6 +411,9 @@ function RecordPaymentDialog({ open, onClose, onSaved }: {
       payment_method: form.payment_method,
       status: form.status as any,
       notes: form.notes || null,
+      period_start: form.period_start || null,
+      period_end: form.period_end || null,
+      amount_paid: form.amount_paid ? parseFloat(form.amount_paid) : parseFloat(form.amount),
     })
     setSaving(false)
     onSaved()
@@ -406,7 +438,15 @@ function RecordPaymentDialog({ open, onClose, onSaved }: {
                 <Input type="number" step="0.01" value={form.amount} onChange={(e) => { setForm({ ...form, amount: e.target.value }); setErrors((p) => ({ ...p, amount: '' })) }} />
               </FormField>
               <FormField label="Due Date" error={errors.due_date} required>
-                <Input type="date" value={form.due_date} onChange={(e) => { setForm({ ...form, due_date: e.target.value }); setErrors((p) => ({ ...p, due_date: '' })) }} />
+                <Input type="date" value={form.due_date} onChange={(e) => {
+                  const dueDate = e.target.value
+                  const period = dueDate ? calculatePeriod(dueDate) : { start: '', end: '' }
+                  setForm({ ...form, due_date: dueDate, period_start: period.start, period_end: period.end })
+                  setErrors((p) => ({ ...p, due_date: '' }))
+                }} />
+              </FormField>
+              <FormField label="Amount Paid (£)">
+                <Input type="number" step="0.01" value={form.amount_paid} placeholder={form.amount || '0'} onChange={(e) => setForm({ ...form, amount_paid: e.target.value })} />
               </FormField>
               <FormField label="Paid Date">
                 <Input type="date" value={form.paid_date} onChange={(e) => setForm({ ...form, paid_date: e.target.value })} />
@@ -419,7 +459,7 @@ function RecordPaymentDialog({ open, onClose, onSaved }: {
                   <option value="partial">Partial</option>
                 </Select>
               </FormField>
-              <FormField label="Payment Method" className="col-span-2">
+              <FormField label="Payment Method">
                 <Select value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })}>
                   <option value="bank_transfer">Bank Transfer</option>
                   <option value="standing_order">Standing Order</option>
@@ -427,6 +467,14 @@ function RecordPaymentDialog({ open, onClose, onSaved }: {
                   <option value="cheque">Cheque</option>
                 </Select>
               </FormField>
+              <div className="col-span-2 grid grid-cols-2 gap-4">
+                <FormField label="Period Start">
+                  <Input type="date" value={form.period_start} onChange={(e) => setForm({ ...form, period_start: e.target.value })} />
+                </FormField>
+                <FormField label="Period End">
+                  <Input type="date" value={form.period_end} onChange={(e) => setForm({ ...form, period_end: e.target.value })} />
+                </FormField>
+              </div>
             </div>
           </div>
           <DialogFooter>

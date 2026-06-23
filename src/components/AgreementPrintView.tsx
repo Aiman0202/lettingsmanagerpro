@@ -4,13 +4,16 @@ import { Badge } from '@/components/ui/badge'
 import { formatDate } from '@/lib/utils'
 import { FileText, Paperclip, AlertCircle } from 'lucide-react'
 import { fetchAgreementAttachments, getAttachmentSignedUrl } from '@/utils/agreement-attachments'
+import type { PrintOptions } from '@/utils/print-options'
+import { printOptionsToCssVars } from '@/utils/print-options'
 
 interface AgreementPrintViewProps {
   agreementId: string
   showPreview?: boolean
+  printOptions?: PrintOptions
 }
 
-export default function AgreementPrintView({ agreementId, showPreview = false }: AgreementPrintViewProps) {
+export default function AgreementPrintView({ agreementId, showPreview = false, printOptions }: AgreementPrintViewProps) {
   const { data: agreement, isLoading } = useQuery({
     queryKey: ['agreement-print', agreementId],
     queryFn: async () => {
@@ -106,15 +109,26 @@ export default function AgreementPrintView({ agreementId, showPreview = false }:
     if (url) window.open(url, '_blank')
   }
 
+  const defaultHeaderText = `${company?.company_name ?? 'Letting Agency'} | ${propertyAddress} | Ref: ${tenancyRef || agreementId?.slice(0, 8)}`
+  const defaultFooterText = `Page | ${company?.company_name ?? ''}`
+  const headerText = printOptions?.headerText || defaultHeaderText
+  const footerText = printOptions?.footerText || defaultFooterText
+  const pageNumbering = printOptions?.pageNumbering ?? 'arabic'
+  const cssVars = printOptions ? printOptionsToCssVars(printOptions) : {}
+
   return (
-    <div className={showPreview ? 'agreement-preview-screen' : 'agreement-print'}>
+    <div
+      className={showPreview ? 'agreement-preview-screen' : 'agreement-print'}
+      data-page-numbering={pageNumbering}
+      style={cssVars}
+    >
       {!showPreview && (
         <>
           <div className="agreement-header">
-            {company?.company_name ?? 'Letting Agency'} | {propertyAddress} | Ref: {tenancyRef || agreementId?.slice(0, 8)}
+            {headerText}
           </div>
           <div className="agreement-footer">
-            Page <span className="page-number" /> | {company?.company_name ?? ''}
+            Page <span className="page-number" /> | {footerText.replace('Page | ', '')}
           </div>
         </>
       )}
@@ -122,7 +136,9 @@ export default function AgreementPrintView({ agreementId, showPreview = false }:
       {/* Cover */}
       <div className="agreement-cover">
         {company?.logo_storage_path && (
-          <img src={company.logo_storage_path} alt="Company logo" className="company-logo" />
+          <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+            <img src={company.logo_storage_path} alt="Company logo" style={{ maxHeight: '90px', maxWidth: '360px' }} />
+          </div>
         )}
         {company?.company_name && (
           <p style={{ fontSize: '14pt', fontWeight: 'bold', marginBottom: '4px' }}>{company.company_name}</p>
@@ -135,10 +151,12 @@ export default function AgreementPrintView({ agreementId, showPreview = false }:
           </p>
         )}
         {company?.company_registration_number && (
-          <p style={{ fontSize: '8pt', color: '#999', marginBottom: '16px' }}>
+          <p style={{ fontSize: '8pt', color: '#999', marginBottom: '8px' }}>
             Company Reg: {company.company_registration_number}
           </p>
         )}
+
+        <hr style={{ border: 'none', borderTop: '2px solid #999', margin: '16px 0' }} />
 
         <h1>ASSURED SHORTHOLD TENANCY AGREEMENT</h1>
         {tenancyRef && (
@@ -146,6 +164,8 @@ export default function AgreementPrintView({ agreementId, showPreview = false }:
             Reference: <strong>{tenancyRef}</strong>
           </p>
         )}
+
+        <hr style={{ border: 'none', borderTop: '2px solid #999', margin: '12px 0' }} />
 
         <table className="agreement-details">
           <tbody>
@@ -166,7 +186,7 @@ export default function AgreementPrintView({ agreementId, showPreview = false }:
       )}
 
       {/* Appendix A: Compliance Certificates */}
-      {(complianceAttachments.length > 0 || showPreview) && (
+      {(printOptions?.appendices.compliance ?? true) && (complianceAttachments.length > 0 || showPreview) && (
         <div className="appendices-section" style={{ pageBreakBefore: 'always' }}>
           <h2>
             <Paperclip className="h-4 w-4" style={{ display: 'inline', marginRight: '6px' }} />
@@ -206,7 +226,7 @@ export default function AgreementPrintView({ agreementId, showPreview = false }:
       )}
 
       {/* Appendix B: Tenant ID Documents */}
-      {(tenantIdAttachments.length > 0 || showPreview) && (
+      {(printOptions?.appendices.tenantId ?? true) && (tenantIdAttachments.length > 0 || showPreview) && (
         <div className="appendices-section" style={{ pageBreakBefore: 'always' }}>
           <h2>
             <Paperclip className="h-4 w-4" style={{ display: 'inline', marginRight: '6px' }} />
@@ -241,7 +261,7 @@ export default function AgreementPrintView({ agreementId, showPreview = false }:
       )}
 
       {/* Appendix C: Tenant References */}
-      {(referenceAttachments.length > 0 || showPreview) && (
+      {(printOptions?.appendices.references ?? true) && (referenceAttachments.length > 0 || showPreview) && (
         <div className="appendices-section" style={{ pageBreakBefore: 'always' }}>
           <h2>
             <Paperclip className="h-4 w-4" style={{ display: 'inline', marginRight: '6px' }} />
@@ -270,6 +290,42 @@ export default function AgreementPrintView({ agreementId, showPreview = false }:
               No tenant references are currently linked to this agreement.
             </p>
           )}
+        </div>
+      )}
+
+      {/* Appendix D: Signature Verification Log */}
+      {(printOptions?.appendices.signatureLog ?? true) && agreement.agreement_signatures && agreement.agreement_signatures.length > 0 && (
+        <div className="appendices-section" style={{ pageBreakBefore: 'always' }}>
+          <h2>
+            Appendix D: Signature Verification Log
+          </h2>
+          <p style={{ fontSize: '10pt', color: '#666', marginBottom: '12px' }}>
+            All signatures were captured electronically and are recorded below for verification purposes.
+          </p>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10pt' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e5e5e5', background: '#f9f9f9' }}>
+                <th style={{ textAlign: 'left', padding: '6px 10px' }}>Signatory</th>
+                <th style={{ textAlign: 'left', padding: '6px 10px' }}>Role</th>
+                <th style={{ textAlign: 'left', padding: '6px 10px' }}>Signed Date</th>
+                <th style={{ textAlign: 'left', padding: '6px 10px' }}>Method</th>
+                <th style={{ textAlign: 'left', padding: '6px 10px' }}>Witness</th>
+                <th style={{ textAlign: 'left', padding: '6px 10px' }}>Witness Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agreement.agreement_signatures.map((sig: any) => (
+                <tr key={sig.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '6px 10px' }}>{sig.signatory_name}</td>
+                  <td style={{ padding: '6px 10px' }}>{sig.signatory_type === 'agent' ? 'Letting Agent' : 'Tenant'}</td>
+                  <td style={{ padding: '6px 10px' }}>{formatDate(sig.signed_at)}</td>
+                  <td style={{ padding: '6px 10px' }}>{sig.capture_method === 'topaz' ? 'Topaz Pad' : 'Touch/Mouse'}</td>
+                  <td style={{ padding: '6px 10px' }}>{sig.witness_name ?? '—'}</td>
+                  <td style={{ padding: '6px 10px' }}>{sig.witness_address ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

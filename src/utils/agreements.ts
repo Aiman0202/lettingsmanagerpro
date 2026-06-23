@@ -170,7 +170,12 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
     '{{family_member_3_relation}}': '',
   }
 
-  const bodyHtml = applyMergeFields((defaultTemplate as any).body_html, mergeContext)
+  // Build logo HTML if company has a logo
+  const logoHtml = company.logo_storage_path
+    ? `<div style="text-align: center; margin-bottom: 16px;"><img src="${company.logo_storage_path}" alt="Company Logo" style="max-height: 80px; max-width: 400px;" /></div>`
+    : ''
+
+  const bodyHtml = logoHtml + applyMergeFields((defaultTemplate as any).body_html, mergeContext)
 
   // Insert generated agreement
   const { data: agreement, error } = await (supabase.from('generated_agreements') as any)
@@ -200,7 +205,7 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
   return agreementId
 }
 
-// Embed captured signatures into agreement HTML
+// Embed captured signatures into agreement HTML with witness details
 export async function embedSignaturesIntoAgreement(agreementId: string) {
   const { data: agreement } = await supabase
     .from('generated_agreements')
@@ -214,14 +219,41 @@ export async function embedSignaturesIntoAgreement(agreementId: string) {
     .from('agreement_signatures')
     .select('*')
     .eq('agreement_id', agreementId)
+    .order('signed_at')
 
   let updatedHtml = (agreement as any).merged_html
 
   for (const sig of (signatures ?? []) as any[]) {
-    const sigHtml = `
-      <img src="${sig.signature_image_base64}" class="signature-image" />
-      <p style="font-size: 10pt;">Signed: ${new Date(sig.signed_at).toLocaleDateString('en-GB')}</p>
-    `
+    const signedDate = new Date(sig.signed_at).toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'long', year: 'numeric'
+    })
+
+    // Build detailed signature block
+    let sigHtml = `<div class="signature-block">`
+    sigHtml += `<p style="font-weight: bold; margin-bottom: 4px;">${sig.signatory_name}</p>`
+    sigHtml += `<p style="font-size: 9pt; color: #666; margin-bottom: 8px;">${sig.signatory_type === 'agent' ? 'Letting Agent' : 'Tenant'}</p>`
+    sigHtml += `<img src="${sig.signature_image_base64}" class="signature-image" style="max-width: 220px; max-height: 70px; margin-bottom: 4px;" />`
+    sigHtml += `<p style="font-size: 10pt;">Signed: ${signedDate}</p>`
+
+    // Add witness details if present
+    if (sig.witness_name) {
+      sigHtml += `<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #e5e5e5;">`
+      sigHtml += `<p style="font-size: 9pt; color: #555; font-style: italic; margin-bottom: 4px;">In the presence of:</p>`
+      sigHtml += `<p style="font-size: 10pt;"><strong>Witness:</strong> ${sig.witness_name}</p>`
+      if (sig.witness_address) {
+        sigHtml += `<p style="font-size: 9pt; color: #666;">Address: ${sig.witness_address}</p>`
+      }
+      if (sig.witness_occupation) {
+        sigHtml += `<p style="font-size: 9pt; color: #666;">Occupation: ${sig.witness_occupation}</p>`
+      }
+      if (sig.witness_signature_base64) {
+        sigHtml += `<img src="${sig.witness_signature_base64}" class="signature-image witness-sig" style="max-width: 160px; max-height: 50px; margin-top: 4px;" />`
+      }
+      sigHtml += `</div>`
+    }
+
+    sigHtml += `</div>`
+
     updatedHtml = updatedHtml.replace(
       new RegExp(`\\[SIGNATURE:${sig.signatory_type}\\]`, 'g'),
       sigHtml

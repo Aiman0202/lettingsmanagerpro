@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, FileText, Calendar, PoundSterling, Users, Plus, ClipboardCheck, AlertTriangle, ClipboardList, ChevronDown, ChevronRight, RefreshCw, Pencil, FilePen, PenLine, Send, CheckCircle, Eye, Loader2 } from 'lucide-react'
+import { ArrowLeft, FileText, Calendar, PoundSterling, Users, Plus, ClipboardCheck, AlertTriangle, ClipboardList, ChevronDown, ChevronRight, RefreshCw, Pencil, FilePen, PenLine, Send, CheckCircle, Eye, Loader2, Receipt } from 'lucide-react'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { fetchTenancyTimeline } from '@/utils/timeline'
 import { generateAgreementForTenancy } from '@/utils/agreements'
@@ -19,6 +19,8 @@ import AmendmentFormDialog from '@/components/AmendmentFormDialog'
 import AgreementPreviewDialog from '@/components/AgreementPreviewDialog'
 import SignatureCaptureModal from '@/pages/agreements/SignatureCaptureModal'
 import CouncilSubmissionDialog from '@/components/CouncilSubmissionDialog'
+import PaymentReceiptDialog from '@/components/PaymentReceiptDialog'
+import { calculateRunningBalance } from '@/utils/receipt'
 
 export default function TenancyDetailPage() {
   const { id } = useParams()
@@ -36,6 +38,7 @@ export default function TenancyDetailPage() {
   const [showSign, setShowSign] = useState(false)
   const [showCouncil, setShowCouncil] = useState(false)
   const [creatingAgreement, setCreatingAgreement] = useState(false)
+  const [receiptTxn, setReceiptTxn] = useState<any>(null)
 
   const { data: companySettings } = useQuery({
     queryKey: ['company-settings-tenancy'],
@@ -292,27 +295,63 @@ export default function TenancyDetailPage() {
             <TableRow>
               <TableHead>Due Date</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Paid</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Paid Date</TableHead>
+              <TableHead>Balance</TableHead>
+              <TableHead>Receipt</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(rentTxns as any[] ?? []).length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-gray-400 py-6">No rent transactions</TableCell></TableRow>
-            ) : (rentTxns as any[] ?? []).map((r: any) => (
-              <TableRow key={r.id}>
-                <TableCell>{formatDate(r.due_date)}</TableCell>
-                <TableCell>{formatCurrency(r.amount)}</TableCell>
-                <TableCell>
-                  <Badge variant={
-                    r.status === 'paid' ? 'success' :
-                    r.status === 'overdue' ? 'destructive' :
-                    'secondary'
-                  }>{r.status}</Badge>
-                </TableCell>
-                <TableCell>{r.paid_date ? formatDate(r.paid_date) : '—'}</TableCell>
-              </TableRow>
-            ))}
+            {(() => {
+              const txns = (rentTxns as any[] ?? [])
+              if (txns.length === 0) {
+                return <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-6">No rent transactions</TableCell></TableRow>
+              }
+              const { balance, map } = calculateRunningBalance(txns)
+              const totalDue = txns.reduce((s, r) => s + r.amount, 0)
+              const totalPaid = txns.reduce((s, r) => s + (r.amount_paid ?? (r.status === 'paid' ? r.amount : 0)), 0)
+              return (
+                <>
+                  {txns.map((r: any) => {
+                    const bal = map.get(r.id)
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell>{formatDate(r.due_date)}</TableCell>
+                        <TableCell>{formatCurrency(r.amount)}</TableCell>
+                        <TableCell>{formatCurrency(r.amount_paid ?? (r.status === 'paid' ? r.amount : 0))}</TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            r.status === 'paid' ? 'success' :
+                            r.status === 'overdue' ? 'destructive' :
+                            'secondary'
+                          }>{r.status}</Badge>
+                        </TableCell>
+                        <TableCell>{r.paid_date ? formatDate(r.paid_date) : '—'}</TableCell>
+                        <TableCell className={bal && bal.balanceAfter > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                          {bal ? formatCurrency(bal.balanceAfter) : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {r.status === 'paid' && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReceiptTxn(r)} title="View receipt">
+                              <Receipt className="h-4 w-4 text-blue-600" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  <TableRow className="bg-gray-50 font-semibold">
+                    <TableCell>Totals</TableCell>
+                    <TableCell>{formatCurrency(totalDue)}</TableCell>
+                    <TableCell>{formatCurrency(totalPaid)}</TableCell>
+                    <TableCell colSpan={2}></TableCell>
+                    <TableCell className={balance > 0 ? 'text-red-600' : 'text-green-600'}>{formatCurrency(balance)}</TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                </>
+              )
+            })()}
           </TableBody>
         </Table>
       </Card>
@@ -684,6 +723,16 @@ function AgreementTab({
           open={showCouncil}
           onClose={() => setShowCouncil(false)}
           onSubmitted={() => { setShowCouncil(false); onRefresh() }}
+        />
+      )}
+
+      {receiptTxn && (
+        <PaymentReceiptDialog
+          open={!!receiptTxn}
+          onClose={() => setReceiptTxn(null)}
+          transaction={receiptTxn}
+          tenantName={(tenancy as any)?.tenancy_tenants?.[0]?.tenants?.full_name}
+          propertyAddress={(tenancy as any)?.properties?.address}
         />
       )}
     </div>

@@ -10,14 +10,20 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Plus, Upload, FileText, Users, Calendar, Mail, Phone, Trash2 } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { ArrowLeft, Plus, Upload, FileText, Users, Calendar, Mail, Phone, Trash2, MessageSquare, PhoneCall, Activity, Receipt, PoundSterling } from 'lucide-react'
+import { formatDate, formatCurrency } from '@/lib/utils'
+import CommunicationFormDialog from '@/components/CommunicationFormDialog'
+import PaymentReceiptDialog from '@/components/PaymentReceiptDialog'
+import { calculateRunningBalance } from '@/utils/receipt'
 
 export default function TenantDetailPage() {
   const { id } = useParams()
   const qc = useQueryClient()
   const [showIdForm, setShowIdForm] = useState(false)
   const [showFamilyForm, setShowFamilyForm] = useState(false)
+  const [showCommForm, setShowCommForm] = useState(false)
+  const [commFilter, setCommFilter] = useState('')
+  const [receiptTxn, setReceiptTxn] = useState<any>(null)
 
   const { data: tenant } = useQuery({
     queryKey: ['tenant-detail', id],
@@ -51,6 +57,35 @@ export default function TenantDetailPage() {
         .select('*, tenancies(start_date, end_date, rent_amount, status, properties(address))')
         .eq('tenant_id', id!)
       return data ?? []
+    },
+  })
+
+  const { data: communications } = useQuery({
+    queryKey: ['tenant-communications', id],
+    queryFn: async () => {
+      const { data } = await (supabase.from('tenant_communications') as any)
+        .select('*')
+        .eq('tenant_id', id!)
+        .order('logged_at', { ascending: false })
+      return (data ?? []) as any[]
+    },
+  })
+
+  const { data: paymentHistory } = useQuery({
+    queryKey: ['tenant-payments', id],
+    queryFn: async () => {
+      const { data: tenancyLinks } = await supabase
+        .from('tenancy_tenants')
+        .select('tenancy_id, tenancies(properties(address))')
+        .eq('tenant_id', id!)
+      const tenancyIds = (tenancyLinks ?? []).map((t: any) => t.tenancy_id)
+      if (tenancyIds.length === 0) return []
+      const { data } = await supabase
+        .from('rent_transactions')
+        .select('*, tenancies(properties(address))')
+        .in('tenancy_id', tenancyIds)
+        .order('due_date', { ascending: false })
+      return (data ?? []) as any[]
     },
   })
 
@@ -145,6 +180,152 @@ export default function TenantDetailPage() {
 
       <IdDocumentDialog open={showIdForm} onClose={() => setShowIdForm(false)} tenantId={id!} />
       <FamilyMemberDialog open={showFamilyForm} onClose={() => setShowFamilyForm(false)} tenantId={id!} />
+      <CommunicationFormDialog open={showCommForm} onClose={() => setShowCommForm(false)} tenantId={id!} />
+
+      {/* Communications Timeline */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Activity className="h-5 w-5" /> Communication Log
+          </CardTitle>
+          <Button size="sm" onClick={() => setShowCommForm(true)}>
+            <Plus className="h-3 w-3 mr-1" /> Log Communication
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {/* Filter chips */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {['', 'call', 'email', 'sms', 'letter', 'visit'].map((f) => (
+              <button
+                key={f}
+                onClick={() => setCommFilter(f)}
+                className={`px-3 py-1 text-xs rounded-full border ${commFilter === f ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+              >
+                {f ? f.charAt(0).toUpperCase() + f.slice(1) : 'All'}
+              </button>
+            ))}
+          </div>
+
+          {(() => {
+            const filtered = commFilter ? (communications ?? []).filter((c) => c.type === commFilter) : (communications ?? [])
+            if (filtered.length === 0) {
+              return <p className="text-center text-gray-400 py-6">No communications recorded</p>
+            }
+            const COMM_ICONS: Record<string, any> = {
+              call: PhoneCall, email: Mail, sms: MessageSquare, letter: FileText, visit: Users, other: MessageSquare,
+            }
+            const COMM_COLORS: Record<string, string> = {
+              call: 'text-blue-600 bg-blue-50', email: 'text-indigo-600 bg-indigo-50',
+              sms: 'text-green-600 bg-green-50', letter: 'text-gray-600 bg-gray-50',
+              visit: 'text-purple-600 bg-purple-50', other: 'text-gray-500 bg-gray-50',
+            }
+            return (
+              <div className="relative border-l-2 border-gray-100 pl-6 space-y-4">
+                {filtered.map((comm) => {
+                  const Icon = COMM_ICONS[comm.type] ?? MessageSquare
+                  const colorClass = COMM_COLORS[comm.type] ?? 'text-gray-500 bg-gray-50'
+                  return (
+                    <div key={comm.id} className="relative">
+                      <div className={`absolute -left-8 top-0.5 w-8 h-8 rounded-full flex items-center justify-center ${colorClass}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <span className="text-xs text-gray-400 font-mono">{formatDate(comm.logged_at)}</span>
+                        <Badge variant="outline" className="text-xs capitalize">{comm.type}</Badge>
+                        <Badge variant={comm.direction === 'inbound' ? 'default' : 'secondary'} className="text-xs">{comm.direction}</Badge>
+                      </div>
+                      {comm.subject && <p className="text-sm font-medium text-gray-800 mt-0.5">{comm.subject}</p>}
+                      {comm.body && <p className="text-sm text-gray-600 mt-0.5">{comm.body}</p>}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* Payment History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <PoundSterling className="h-5 w-5" /> Payment History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Property</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Paid</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Balance</TableHead>
+                <TableHead>Receipt</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(() => {
+                const txns = paymentHistory ?? []
+                if (txns.length === 0) {
+                  return <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-6">No payment history</TableCell></TableRow>
+                }
+                // Group by tenancy for balance calculation
+                const byTenancy = new Map<string, any[]>()
+                txns.forEach((t: any) => {
+                  const list = byTenancy.get(t.tenancy_id) ?? []
+                  list.push(t)
+                  byTenancy.set(t.tenancy_id, list)
+                })
+                const balanceMap = new Map<string, { balanceBefore: number; balanceAfter: number }>()
+                byTenancy.forEach((list) => {
+                  const { map } = calculateRunningBalance(list)
+                  map.forEach((v, k) => balanceMap.set(k, v))
+                })
+                return txns.map((t: any) => {
+                  const bal = balanceMap.get(t.id)
+                  return (
+                    <TableRow key={t.id}>
+                      <TableCell>{t.tenancies?.properties?.address ?? '—'}</TableCell>
+                      <TableCell>{formatDate(t.due_date)}</TableCell>
+                      <TableCell>{formatCurrency(t.amount)}</TableCell>
+                      <TableCell>{formatCurrency(t.amount_paid ?? (t.status === 'paid' ? t.amount : 0))}</TableCell>
+                      <TableCell>
+                        <Badge variant={t.status === 'paid' ? 'success' : t.status === 'overdue' ? 'destructive' : 'secondary'}>{t.status}</Badge>
+                      </TableCell>
+                      <TableCell className={bal && bal.balanceAfter > 0 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                        {bal ? formatCurrency(bal.balanceAfter) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {t.status === 'paid' && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReceiptTxn(t)} title="View receipt">
+                            <Receipt className="h-4 w-4 text-blue-600" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              })()}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <IdDocumentDialog open={showIdForm} onClose={() => setShowIdForm(false)} tenantId={id!} />
+      <FamilyMemberDialog open={showFamilyForm} onClose={() => setShowFamilyForm(false)} tenantId={id!} />
+      <CommunicationFormDialog open={showCommForm} onClose={() => setShowCommForm(false)} tenantId={id!} />
+
+      {receiptTxn && (
+        <PaymentReceiptDialog
+          open={!!receiptTxn}
+          onClose={() => setReceiptTxn(null)}
+          transaction={receiptTxn}
+          tenantName={(t as any)?.full_name}
+          propertyAddress={receiptTxn.tenancies?.properties?.address}
+        />
+      )}
     </div>
   )
 }

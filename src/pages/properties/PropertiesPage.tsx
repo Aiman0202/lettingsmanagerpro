@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Building2, MapPin, Eye, Power, CheckCircle, ArrowUpRight } from 'lucide-react'
+import { Plus, Search, Building2, MapPin, Eye, Power, CheckCircle, ArrowUpRight, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatDate } from '@/lib/utils'
 import { generateNextReference } from '@/utils/references'
@@ -22,6 +22,7 @@ import { ColumnVisibility } from '@/components/ui/ColumnVisibility'
 import { useColumnVisibility, type ColumnConfig } from '@/hooks/useColumnVisibility'
 import { FormField } from '@/components/ui/FormField'
 import { propertySchema, zodErrors } from '@/schemas/forms'
+import { calculateReadinessScore, readinessColor, readinessLabel, type ReadinessResult } from '@/utils/compliance-score'
 
 type PropertyStatus = 'available' | 'let' | 'maintenance' | 'inactive'
 
@@ -39,6 +40,7 @@ const PROPERTY_COLUMNS: ColumnConfig[] = [
   { key: 'beds', label: 'Beds', defaultVisible: true },
   { key: 'landlord', label: 'Landlord', defaultVisible: true },
   { key: 'status', label: 'Status', defaultVisible: true },
+  { key: 'readiness', label: 'Readiness', defaultVisible: true },
   { key: 'added', label: 'Added', defaultVisible: true },
 ]
 
@@ -56,7 +58,7 @@ export default function PropertiesPage() {
     queryFn: async () => {
       let q = supabase
         .from('properties')
-        .select('*, landlords(full_name), property_photos(id, storage_path, is_primary)')
+        .select('*, landlords(full_name), property_photos(id, storage_path, is_primary), property_compliance(type, expiry_date)')
         .order('created_at', { ascending: false })
 
       if (statusFilter) q = q.eq('status', statusFilter)
@@ -65,7 +67,19 @@ export default function PropertiesPage() {
       }
 
       const { data } = await q
-      return data ?? []
+      const properties = data ?? []
+
+      // Generate signed URLs for primary photos
+      for (const prop of properties as any[]) {
+        const photos = prop.property_photos ?? []
+        const primaryPhoto = photos.find((ph: any) => ph.is_primary) ?? photos[0]
+        if (primaryPhoto) {
+          const { data: urlData } = await supabase.storage.from('property-photos').createSignedUrl(primaryPhoto.storage_path, 3600)
+          primaryPhoto.signedUrl = urlData?.signedUrl ?? null
+        }
+      }
+
+      return properties
     },
   })
 
@@ -148,6 +162,7 @@ export default function PropertiesPage() {
                 {isVisible('beds') && <TableHead className="hidden sm:table-cell">Beds</TableHead>}
                 {isVisible('landlord') && <TableHead className="hidden md:table-cell">Landlord</TableHead>}
                 {isVisible('status') && <TableHead>Status</TableHead>}
+                {isVisible('readiness') && <TableHead className="hidden lg:table-cell">Readiness</TableHead>}
                 {isVisible('added') && <TableHead className="hidden lg:table-cell">Added</TableHead>}
                 <TableHead className="no-print"></TableHead>
               </TableRow>
@@ -166,7 +181,7 @@ export default function PropertiesPage() {
               </TableRow>
             ) : (properties ?? []).map((p: any) => {
               const primaryPhoto = (p.property_photos ?? []).find((ph: any) => ph.is_primary) ?? (p.property_photos ?? [])[0]
-              const photoUrl = primaryPhoto ? supabase.storage.from('property-photos').getPublicUrl(primaryPhoto.storage_path).data.publicUrl : null
+              const photoUrl = primaryPhoto?.signedUrl ?? null
               return (
               <TableRow key={p.id}>
                 {isVisible('ref') && <TableCell className="hidden sm:table-cell text-xs font-mono text-gray-500">{p.reference_number}</TableCell>}
@@ -194,6 +209,16 @@ export default function PropertiesPage() {
                   <Badge variant={statusVariant[p.status as PropertyStatus] ?? 'secondary'}>
                     {p.status}
                   </Badge>
+                </TableCell>}
+                {isVisible('readiness') && <TableCell className="hidden lg:table-cell">
+                  {(() => {
+                    const result = calculateReadinessScore((p.property_compliance ?? []).map((c: any) => ({ type: c.type, expiry_date: c.expiry_date })))
+                    return (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${readinessColor(result.status)}`} title={result.items.map((i) => `${i.type}: ${i.state}${i.daysUntilExpiry !== undefined ? ` (${i.daysUntilExpiry}d)` : ''}`).join(', ')}>
+                        <ShieldCheck className="h-3 w-3" /> {readinessLabel(result.status)}
+                      </span>
+                    )
+                  })()}
                 </TableCell>}
                 {isVisible('added') && <TableCell>{formatDate(p.created_at)}</TableCell>}
                 <TableCell className="no-print">
@@ -276,7 +301,7 @@ export default function PropertiesPage() {
           </div>
         ) : (properties ?? []).map((p: any) => {
           const primaryPhoto = (p.property_photos ?? []).find((ph: any) => ph.is_primary) ?? (p.property_photos ?? [])[0]
-          const photoUrl = primaryPhoto ? supabase.storage.from('property-photos').getPublicUrl(primaryPhoto.storage_path).data.publicUrl : null
+          const photoUrl = primaryPhoto?.signedUrl ?? null
           return (
             <MobileCard key={p.id}>
               <div className="flex items-start justify-between gap-3 mb-3">

@@ -80,6 +80,28 @@ export const maintenanceSchema = z.object({
   status: z.string().min(1),
 })
 
+export const viewingSchema = z.object({
+  property_id: z.string().min(1, 'Select a property'),
+  prospect_name: z.string().min(1, 'Prospect name is required'),
+  prospect_email: z.string().optional().refine(
+    (v) => !v || z.string().email().safeParse(v).success,
+    'Invalid email',
+  ),
+  prospect_phone: z.string().optional(),
+  scheduled_at: z.string().min(1, 'Date and time required'),
+  duration_minutes: z.string().min(1, 'Duration required'),
+  source: z.string().min(1, 'Select a source'),
+  notes: z.string().optional(),
+})
+
+export const communicationSchema = z.object({
+  type: z.string().min(1, 'Select a type'),
+  direction: z.string().min(1, 'Select direction'),
+  subject: z.string().optional(),
+  body: z.string().optional(),
+  logged_at: z.string().min(1, 'Date is required'),
+})
+
 /**
  * Convert Zod validation errors into a Record<field, message> for inline display.
  */

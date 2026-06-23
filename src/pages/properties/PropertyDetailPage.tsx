@@ -10,12 +10,15 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Plus, AlertTriangle, CheckCircle, Clock, FileText, Upload, Trash2, Star, ShieldCheck, Ticket, Download } from 'lucide-react'
+import { ArrowLeft, Plus, AlertTriangle, CheckCircle, Clock, FileText, Upload, Trash2, Star, ShieldCheck, Ticket, Download, Calendar, Eye, MessageSquare } from 'lucide-react'
 import { formatDate, getComplianceStatus, getDaysUntil } from '@/lib/utils'
 import ComplianceFormDialog from '@/components/ComplianceFormDialog'
 import PropertyTimeline from '@/components/PropertyTimeline'
 import HomeSafeLicenceDialog from '@/components/HomeSafeLicenceDialog'
 import TicketFormDialog from '@/components/TicketFormDialog'
+import ViewingFormDialog from '@/components/ViewingFormDialog'
+import ViewingFeedbackDialog from '@/components/ViewingFeedbackDialog'
+import PhotoLightbox from '@/components/PhotoLightbox'
 import { logAudit } from '@/lib/audit'
 
 export default function PropertyDetailPage() {
@@ -71,16 +74,37 @@ export default function PropertyDetailPage() {
     },
   })
 
+  const { data: propertyViewings } = useQuery({
+    queryKey: ['property-viewings', id],
+    queryFn: async () => {
+      const { data } = await (supabase.from('property_viewings') as any)
+        .select('*')
+        .eq('property_id', id!)
+        .order('scheduled_at', { ascending: false })
+        .limit(10)
+      return (data ?? []) as any[]
+    },
+  })
+
   const [showCompliance, setShowCompliance] = useState(false)
   const [showPhotoUpload, setShowPhotoUpload] = useState(false)
   const [showLicence, setShowLicence] = useState(false)
   const [showTicket, setShowTicket] = useState(false)
+  const [showViewingForm, setShowViewingForm] = useState(false)
+  const [feedbackViewing, setFeedbackViewing] = useState<any>(null)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   const { data: photos } = useQuery({
     queryKey: ['property-photos', id],
     queryFn: async () => {
       const { data } = await supabase.from('property_photos').select('*').eq('property_id', id!).order('is_primary', { ascending: false }).order('created_at')
-      return data ?? []
+      const photos = data ?? []
+      return await Promise.all(
+        photos.map(async (photo: any) => {
+          const { data: urlData } = await supabase.storage.from('property-photos').createSignedUrl(photo.storage_path, 3600)
+          return { ...photo, signedUrl: urlData?.signedUrl ?? '' }
+        })
+      )
     },
   })
 
@@ -326,6 +350,52 @@ export default function PropertyDetailPage() {
         </Table>
       </Card>
 
+      {/* Viewings */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Viewings ({(propertyViewings ?? []).length})</CardTitle>
+          <Button size="sm" onClick={() => setShowViewingForm(true)}>
+            <Calendar className="h-4 w-4 mr-1" /> Schedule Viewing
+          </Button>
+        </CardHeader>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Prospect</TableHead>
+              <TableHead>Source</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Rating</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(propertyViewings ?? []).length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-6">No viewings scheduled</TableCell></TableRow>
+            ) : (propertyViewings ?? []).map((v: any) => (
+              <TableRow key={v.id}>
+                <TableCell className="font-mono text-xs">{formatDate(v.scheduled_at)}</TableCell>
+                <TableCell>{v.prospect_name}</TableCell>
+                <TableCell className="capitalize">{v.source?.replace('_', ' ') ?? '—'}</TableCell>
+                <TableCell>
+                  <Badge variant={v.status === 'scheduled' ? 'default' : v.status === 'completed' ? 'success' : v.status === 'converted' ? 'default' : v.status === 'no_show' ? 'destructive' : 'secondary'}>
+                    {v.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="capitalize">{v.rating?.replace('_', ' ') ?? '—'}</TableCell>
+                <TableCell>
+                  {v.status === 'scheduled' && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setFeedbackViewing(v)}>
+                      <MessageSquare className="h-3 w-3 mr-1" /> Feedback
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+
       {/* Photo Gallery */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -339,11 +409,10 @@ export default function PropertyDetailPage() {
             <p className="text-center text-gray-400 py-8">No photos uploaded yet</p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {(photos as any[]).map((photo) => {
-                const url = supabase.storage.from('property-photos').getPublicUrl(photo.storage_path).data.publicUrl
+              {(photos as any[]).map((photo, idx) => {
                 return (
-                  <div key={photo.id} className="relative group">
-                    <img src={url} alt="Property" className="w-full h-32 object-cover rounded-lg border" />
+                  <div key={photo.id} className="relative group cursor-pointer" onClick={() => setLightboxIndex(idx)}>
+                    <img src={photo.signedUrl} alt="Property" className="w-full h-32 object-cover rounded-lg border" />
                     {photo.is_primary && (
                       <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded flex items-center gap-1">
                         <Star className="h-3 w-3" /> Primary
@@ -373,6 +442,13 @@ export default function PropertyDetailPage() {
 
       <PhotoUploadDialog open={showPhotoUpload} onClose={() => setShowPhotoUpload(false)} propertyId={id!} />
 
+      <PhotoLightbox
+        photos={(photos as any[] ?? []).map((p: any) => ({ id: p.id, url: p.signedUrl }))}
+        startIndex={lightboxIndex ?? 0}
+        open={lightboxIndex !== null}
+        onClose={() => setLightboxIndex(null)}
+      />
+
       <HomeSafeLicenceDialog open={showLicence} onClose={() => setShowLicence(false)} propertyId={id!} />
 
       <ComplianceFormDialog
@@ -396,6 +472,25 @@ export default function PropertyDetailPage() {
           }}
         />
       )}
+
+      {/* Viewing Form Dialog */}
+      <ViewingFormDialog
+        open={showViewingForm}
+        onClose={() => setShowViewingForm(false)}
+        propertyId={id!}
+        onSaved={() => {
+          setShowViewingForm(false)
+          qc.invalidateQueries({ queryKey: ['property-viewings', id] })
+        }}
+      />
+
+      {/* Viewing Feedback Dialog */}
+      <ViewingFeedbackDialog
+        open={!!feedbackViewing}
+        onClose={() => setFeedbackViewing(null)}
+        viewing={feedbackViewing}
+        onSaved={() => qc.invalidateQueries({ queryKey: ['property-viewings', id] })}
+      />
     </div>
   )
 }

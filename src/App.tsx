@@ -24,6 +24,7 @@ import DocumentsPage from '@/pages/documents/DocumentsPage'
 import AgreementsPage from '@/pages/agreements/AgreementsPage'
 import SettingsPage from '@/pages/settings/SettingsPage'
 import OnboardingPage from '@/pages/onboarding/OnboardingPage'
+import ViewingsPage from '@/pages/viewings/ViewingsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +75,7 @@ function AppRoutes() {
       <Route path="/agreements" element={<ProtectedRoute><AgreementsPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+      <Route path="/viewings" element={<ProtectedRoute><ViewingsPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
