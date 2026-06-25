@@ -80,8 +80,8 @@ export function generateStatementHTML(data: StatementPrintData): string {
       <td>${tx.tenant_name || '—'}</td>
       <td>${tx.reference || '—'}</td>
       <td class="text-right">${fmtCurrency(tx.amount)}</td>
-    </tr>
-  `}).join('')
+    </tr>`
+  }).join('')
 
   // Generate expense table rows
   const expenseRows = expenses.map(exp => {
@@ -93,8 +93,8 @@ export function generateStatementHTML(data: StatementPrintData): string {
       <td>${exp.category || '—'}</td>
       <td>${exp.description || '—'}</td>
       <td class="text-right">${fmtCurrency(exp.amount)}</td>
-    </tr>
-  `}).join('')
+    </tr>`
+  }).join('')
 
   return `<!DOCTYPE html>
 <html lang="en">
