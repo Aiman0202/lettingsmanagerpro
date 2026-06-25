@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useToast } from '@/contexts/ToastContext'
 import { handleApiError } from '@/utils/validation'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { PoundSterling, Plus, CheckCircle, Calculator, FileText, ChevronLeft } from 'lucide-react'
+import { PoundSterling, Plus, CheckCircle, Calculator, FileText, ChevronLeft, Eye } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 // ============================================================
@@ -168,11 +168,18 @@ export default function LandlordStatementsPage() {
                 </TableCell>
                 <TableCell className="text-sm">{s.paid_at ? formatDate(s.paid_at) : '—'}</TableCell>
                 <TableCell>
-                  {!s.paid_at && (
-                    <Button size="sm" variant="outline" onClick={() => { setPayingStatement(s); setShowPay(true); }}>
-                      <CheckCircle className="h-3 w-3 mr-1" /> Mark Paid
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link to={`/finance/statements/${s.id}`}>
+                        <Eye className="h-3 w-3 mr-1" /> View
+                      </Link>
                     </Button>
-                  )}
+                    {!s.paid_at && (
+                      <Button size="sm" variant="outline" onClick={() => { setPayingStatement(s); setShowPay(true); }}>
+                        <CheckCircle className="h-3 w-3 mr-1" /> Mark Paid
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

@@ -19,6 +19,7 @@ import CompliancePage from '@/pages/compliance/CompliancePage'
 import MaintenancePage from '@/pages/maintenance/MaintenancePage'
 import FinancePage from '@/pages/finance/FinancePage'
 import LandlordStatementsPage from '@/pages/finance/LandlordStatementsPage'
+import StatementDetailPage from '@/pages/finance/StatementDetailPage'
 import ArrearsPage from '@/pages/finance/ArrearsPage'
 import DocumentsPage from '@/pages/documents/DocumentsPage'
 import AgreementsPage from '@/pages/agreements/AgreementsPage'
@@ -69,6 +70,7 @@ function AppRoutes() {
       <Route path="/maintenance/:id" element={<ProtectedRoute><MaintenancePage /></ProtectedRoute>} />
       <Route path="/finance" element={<ProtectedRoute><FinancePage /></ProtectedRoute>} />
       <Route path="/finance/statements" element={<ProtectedRoute><LandlordStatementsPage /></ProtectedRoute>} />
+      <Route path="/finance/statements/:id" element={<ProtectedRoute><StatementDetailPage /></ProtectedRoute>} />
       <Route path="/finance/arrears" element={<ProtectedRoute><ArrearsPage /></ProtectedRoute>} />
       <Route path="/documents" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
       <Route path="/compliance" element={<ProtectedRoute><CompliancePage /></ProtectedRoute>} />
