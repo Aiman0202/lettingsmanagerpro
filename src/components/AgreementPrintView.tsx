@@ -195,11 +195,17 @@ export default function AgreementPrintView({ agreementId, showPreview = false, p
       </div>
 
       {/* Agreement body — full comprehensive template from merged_html */}
-      {agreement.merged_html && (
+      {agreement.merged_html ? (
         <div 
           className="agreement-content" 
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(agreement.merged_html) }} 
         />
+      ) : (
+        <div className="text-center p-12 text-gray-500 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+          <h3 className="text-lg font-semibold mb-2">No Agreement Content</h3>
+          <p className="text-sm">This agreement has not been generated yet. Please generate the agreement from the tenancy details page first.</p>
+        </div>
       )}
 
       {/* Appendix A: Compliance Certificates */}

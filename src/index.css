@@ -105,14 +105,21 @@
     print-color-adjust: exact;
   }
 
-  /* Hide all UI chrome except agreement content */
-  body.printing-agreement > * {
+  /* Hide everything by default when printing agreement */
+  body.printing-agreement * {
     display: none !important;
+    visibility: hidden !important;
   }
 
-  /* Show the dialog content when printing */
-  body.printing-agreement [class*="DialogContent"] {
+  /* Show the dialog and all its children when printing */
+  body.printing-agreement [class*="DialogContent"],
+  body.printing-agreement [class*="DialogContent"] * {
     display: block !important;
+    visibility: visible !important;
+  }
+
+  /* Dialog content should be full width and properly positioned */
+  body.printing-agreement [class*="DialogContent"] {
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -128,6 +135,13 @@
   body.printing-agreement .print-hide,
   body.printing-agreement [class*="DialogHeader"] {
     display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Hide scrollable container background */
+  body.printing-agreement [class*="overflow-y-auto"] {
+    background: white !important;
+    padding: 0 !important;
   }
 
   /* Hide navigation and UI chrome for non-agreement pages */
