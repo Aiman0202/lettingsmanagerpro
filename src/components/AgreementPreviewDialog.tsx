@@ -35,7 +35,7 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-full max-h-[92vh] overflow-hidden p-0 flex flex-col">
+      <DialogContent className="agreement-print-dialog max-w-[95vw] w-full max-h-[92vh] overflow-hidden p-0 flex flex-col">
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-gray-200 shrink-0 print-hide">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-lg">Agreement Print Preview</DialogTitle>

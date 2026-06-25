@@ -105,25 +105,21 @@
     print-color-adjust: exact;
   }
 
-  /* Hide everything by default when printing agreement */
-  body.printing-agreement * {
-    display: none !important;
+  /* When printing agreement, hide everything first */
+  body.printing-agreement > * {
     visibility: hidden !important;
   }
 
-  /* Show the dialog and all its children when printing */
-  body.printing-agreement [class*="DialogContent"],
-  body.printing-agreement [class*="DialogContent"] * {
-    display: block !important;
+  /* Then show ONLY the agreement print dialog */
+  body.printing-agreement .agreement-print-dialog {
     visibility: visible !important;
-  }
-
-  /* Dialog content should be full width and properly positioned */
-  body.printing-agreement [class*="DialogContent"] {
-    position: static !important;
+    display: block !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
     width: 100% !important;
-    max-width: 100% !important;
     height: auto !important;
+    max-height: none !important;
     overflow: visible !important;
     background: white !important;
     box-shadow: none !important;
@@ -131,15 +127,19 @@
     padding: 0 !important;
   }
 
-  /* Hide dialog header and buttons when printing */
-  body.printing-agreement .print-hide,
-  body.printing-agreement [class*="DialogHeader"] {
-    display: none !important;
-    visibility: hidden !important;
+  /* Show all children of the dialog */
+  body.printing-agreement .agreement-print-dialog * {
+    visibility: visible !important;
   }
 
-  /* Hide scrollable container background */
-  body.printing-agreement [class*="overflow-y-auto"] {
+  /* Hide dialog header */
+  body.printing-agreement .agreement-print-dialog .print-hide,
+  body.printing-agreement .agreement-print-dialog [class*="DialogHeader"] {
+    display: none !important;
+  }
+
+  /* Make preview area full height with no background */
+  body.printing-agreement .agreement-print-dialog > div:last-child {
     background: white !important;
     padding: 0 !important;
   }
