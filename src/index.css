@@ -347,3 +347,65 @@
   margin: 8px 0;
   display: block;
 }
+
+/* Enhanced editor toolbar */
+.editor-toolbar-row {
+  @apply flex items-center gap-1 border-b border-gray-200 bg-gray-50 px-2 py-1.5 flex-wrap;
+}
+
+.editor-toolbar-row select {
+  @apply text-sm bg-white border border-gray-300 rounded px-2 py-0.5 hover:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500;
+}
+
+.editor-toolbar-divider {
+  @apply w-px h-5 bg-gray-300 mx-1;
+}
+
+/* Ensure editor content respects new formatting */
+.ProseMirror {
+  min-height: 500px;
+}
+
+.ProseMirror mark {
+  @apply rounded-sm px-0.5;
+}
+
+.ProseMirror sub,
+.ProseMirror sup {
+  @apply text-xs;
+}
+
+.ProseMirror p {
+  line-height: 1.6;
+}
+
+/* TipTap editor focus styles */
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* Table styles in editor */
+.ProseMirror table {
+  @apply border-collapse my-4;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  @apply border border-gray-300 px-3 py-2;
+}
+
+.ProseMirror table th {
+  @apply bg-gray-100 font-semibold;
+}
+
+.ProseMirror .selectedCell:after {
+  @apply bg-blue-200 opacity-50;
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}

@@ -6,6 +6,14 @@ import { Table } from '@tiptap/extension-table'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
+import { Color } from '@tiptap/extension-color'
+import { TextStyle } from '@tiptap/extension-text-style'
+import { FontFamily } from '@tiptap/extension-font-family'
+import { Highlight } from '@tiptap/extension-highlight'
+import { Underline } from '@tiptap/extension-underline'
+import { Subscript } from '@tiptap/extension-subscript'
+import { Superscript } from '@tiptap/extension-superscript'
+import { TextAlign } from '@tiptap/extension-text-align'
 import { MergeFieldNode } from '../extensions/MergeFieldNode'
 import { preprocessTemplateHTML } from '../utils/preprocessTemplateHTML'
 
@@ -47,6 +55,14 @@ export function useTemplateEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
+      TextStyle,  // Required for color, font-size, font-family
+      Color.configure({ types: ['textStyle'] }),
+      FontFamily.configure({ types: ['textStyle'] }),
+      Highlight.configure({ multicolor: true }),
+      Underline,
+      Subscript,
+      Superscript,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Placeholder.configure({ placeholder }),
       Table.configure({ resizable: true }),
       TableRow,
@@ -58,7 +74,7 @@ export function useTemplateEditor({
     editorProps: {
       attributes: {
         class:
-          'prose prose-sm max-w-none focus:outline-none min-h-[400px] px-4 py-3',
+          'prose prose-sm max-w-none focus:outline-none min-h-[500px] px-6 py-4 font-serif',
       },
       // Allow tab to indent lists
       handleKeyDown: (_view, event) => {
@@ -106,10 +122,37 @@ export function useTemplateEditor({
     return validateTemplate(html)
   }, [getHTML])
 
+  /**
+   * Undo the last action.
+   */
+  const undo = useCallback(() => {
+    if (!editor) return
+    editor.chain().focus().undo().run()
+  }, [editor])
+
+  /**
+   * Redo the last undone action.
+   */
+  const redo = useCallback(() => {
+    if (!editor) return
+    editor.chain().focus().redo().run()
+  }, [editor])
+
+  /**
+   * Clear all formatting from selected text.
+   */
+  const clearFormatting = useCallback(() => {
+    if (!editor) return
+    editor.chain().focus().clearNodes().unsetAllMarks().run()
+  }, [editor])
+
   return {
     editor,
     insertMergeField,
     getHTML,
     validate,
+    undo,
+    redo,
+    clearFormatting,
   }
 }
