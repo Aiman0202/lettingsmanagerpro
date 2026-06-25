@@ -13,6 +13,7 @@ interface AgreementPrintData {
   rentAmount?: string
   depositAmount?: string
   complianceAttachments?: any[]
+  signatures?: any[]
   companyLogo?: string | null
   companyName?: string
 }
@@ -29,6 +30,7 @@ export function generateAgreementHTML(data: AgreementPrintData): string {
     rentAmount,
     depositAmount,
     complianceAttachments = [],
+    signatures = [],
     companyLogo,
     companyName = 'Property Management'
   } = data
@@ -300,8 +302,8 @@ export function generateAgreementHTML(data: AgreementPrintData): string {
   <!-- Cover Page -->
   <div class="cover-page">
     ${companyLogo 
-      ? `<img src="${companyLogo}" alt="Company Logo" />`
-      : `<h1 style="font-size: 24pt; margin-bottom: 40px;">${companyName}</h1>`
+      ? `<img src="${companyLogo}" alt="Company Logo" style="max-height: 80px; max-width: 250px; margin-bottom: 40px;" />`
+      : `<h1 style="font-size: 24pt; margin-bottom: 40px; color: #1a1a1a;">${companyName}</h1>`
     }
     
     <h1>Assured Shorthold Tenancy Agreement</h1>
@@ -353,6 +355,40 @@ export function generateAgreementHTML(data: AgreementPrintData): string {
     <div class="agreement-content">
       ${agreement?.merged_html || '<p style="color: #999; text-align: center; padding: 40px;">No agreement content available.</p>'}
     </div>
+    
+    <!-- Signatures in Agreement Body -->
+    ${signatures && signatures.length > 0 ? `
+    <div class="inline-signatures" style="page-break-before: auto; margin: 40px 0; padding: 30px; border-top: 2px solid #333;">
+      <h2 style="font-size: 16pt; font-weight: bold; margin-bottom: 30px; text-align: center; color: #1a1a1a;">
+        Executed as a Deed
+      </h2>
+      <p style="text-align: center; margin-bottom: 30px; color: #666; font-size: 10pt;">
+        This agreement has been executed by the parties on the dates shown below
+      </p>
+      
+      ${signatures.filter((s: any) => s.signatory_type === 'tenant').map((sig: any) => `
+        <div style="display: inline-block; width: 48%; margin: 10px 1%; vertical-align: top; padding: 20px; border: 1px solid #ddd; background: #fafafa;">
+          <p style="font-size: 11pt; font-weight: bold; margin-bottom: 15px; color: #333;">Tenant</p>
+          ${sig.signature_image_base64 ? `
+            <img src="${sig.signature_image_base64}" alt="Tenant Signature" style="max-width: 200px; max-height: 80px; margin: 10px 0; border-bottom: 1px solid #999;" />
+          ` : '<p style="color: #999; font-style: italic;">No signature captured</p>'}
+          <p style="font-size: 10pt; margin: 10px 0 5px;"><strong>Name:</strong> ${sig.signatory_name || '—'}</p>
+          <p style="font-size: 10pt; color: #666;"><strong>Date:</strong> ${fmtDate(sig.signed_at)}</p>
+        </div>
+      `).join('')}
+      
+      ${signatures.filter((s: any) => s.signatory_type === 'landlord' || s.signatory_type === 'agent').map((sig: any) => `
+        <div style="display: inline-block; width: 48%; margin: 10px 1%; vertical-align: top; padding: 20px; border: 1px solid #ddd; background: #fafafa;">
+          <p style="font-size: 11pt; font-weight: bold; margin-bottom: 15px; color: #333;">Landlord / Agent</p>
+          ${sig.signature_image_base64 ? `
+            <img src="${sig.signature_image_base64}" alt="Landlord Signature" style="max-width: 200px; max-height: 80px; margin: 10px 0; border-bottom: 1px solid #999;" />
+          ` : '<p style="color: #999; font-style: italic;">No signature captured</p>'}
+          <p style="font-size: 10pt; margin: 10px 0 5px;"><strong>Name:</strong> ${sig.signatory_name || '—'}</p>
+          <p style="font-size: 10pt; color: #666;"><strong>Date:</strong> ${fmtDate(sig.signed_at)}</p>
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
   </div>
 
   <!-- Signature Page -->
@@ -363,47 +399,87 @@ export function generateAgreementHTML(data: AgreementPrintData): string {
     </p>
     
     <!-- Tenant Signature -->
-    <div class="signature-block">
-      <h3>Tenant Signature</h3>
-      <div class="signature-grid">
-        <div>
-          <p><strong>Name:</strong> ${tenantList}</p>
-          <p><strong>Date:</strong> _______________</p>
-        </div>
-        <div>
-          <div class="signature-line">Signature</div>
+    ${signatures?.filter((s: any) => s.signatory_type === 'tenant').map((sig: any) => `
+      <div class="signature-block">
+        <h3>Tenant Signature</h3>
+        <div class="signature-grid">
+          <div>
+            <p><strong>Name:</strong> ${sig.signatory_name || tenantList}</p>
+            <p><strong>Date:</strong> ${fmtDate(sig.signed_at)}</p>
+          </div>
+          <div>
+            ${sig.signature_image_base64 
+              ? `<img src="${sig.signature_image_base64}" alt="Signature" style="max-width: 200px; max-height: 80px;" />`
+              : '<div class="signature-line">Signature</div>'
+            }
+          </div>
         </div>
       </div>
-    </div>
+    `).join('') || `
+      <div class="signature-block">
+        <h3>Tenant Signature</h3>
+        <div class="signature-grid">
+          <div>
+            <p><strong>Name:</strong> ${tenantList}</p>
+            <p><strong>Date:</strong> _______________</p>
+          </div>
+          <div>
+            <div class="signature-line">Signature</div>
+          </div>
+        </div>
+      </div>
+    `}
     
     <!-- Landlord Signature -->
-    <div class="signature-block">
-      <h3>Landlord / Agent Signature</h3>
-      <div class="signature-grid">
-        <div>
-          <p><strong>Name:</strong> ${landlordName}</p>
-          <p><strong>Date:</strong> _______________</p>
-        </div>
-        <div>
-          <div class="signature-line">Signature</div>
+    ${signatures?.filter((s: any) => s.signatory_type === 'landlord' || s.signatory_type === 'agent').map((sig: any) => `
+      <div class="signature-block">
+        <h3>Landlord / Agent Signature</h3>
+        <div class="signature-grid">
+          <div>
+            <p><strong>Name:</strong> ${sig.signatory_name || landlordName}</p>
+            <p><strong>Date:</strong> ${fmtDate(sig.signed_at)}</p>
+          </div>
+          <div>
+            ${sig.signature_image_base64 
+              ? `<img src="${sig.signature_image_base64}" alt="Signature" style="max-width: 200px; max-height: 80px;" />`
+              : '<div class="signature-line">Signature</div>'
+            }
+          </div>
         </div>
       </div>
-    </div>
+    `).join('') || `
+      <div class="signature-block">
+        <h3>Landlord / Agent Signature</h3>
+        <div class="signature-grid">
+          <div>
+            <p><strong>Name:</strong> ${landlordName}</p>
+            <p><strong>Date:</strong> _______________</p>
+          </div>
+          <div>
+            <div class="signature-line">Signature</div>
+          </div>
+        </div>
+      </div>
+    `}
     
-    <!-- Witness Signature (if applicable) -->
-    <div class="signature-block">
-      <h3>Witness Signature (if required)</h3>
-      <div class="signature-grid">
-        <div>
-          <p><strong>Name:</strong> _______________</p>
-          <p><strong>Address:</strong> _______________</p>
-          <p><strong>Date:</strong> _______________</p>
-        </div>
-        <div>
-          <div class="signature-line">Signature</div>
+    <!-- Witness Signature -->
+    ${signatures?.filter((s: any) => s.signatory_type === 'witness').map((sig: any) => `
+      <div class="signature-block">
+        <h3>Witness Signature</h3>
+        <div class="signature-grid">
+          <div>
+            <p><strong>Name:</strong> ${sig.signatory_name || '—'}</p>
+            <p><strong>Date:</strong> ${fmtDate(sig.signed_at)}</p>
+          </div>
+          <div>
+            ${sig.signature_image_base64 
+              ? `<img src="${sig.signature_image_base64}" alt="Witness Signature" style="max-width: 200px; max-height: 80px;" />`
+              : '<div class="signature-line">Signature</div>'
+            }
+          </div>
         </div>
       </div>
-    </div>
+    `).join('') || ''}
   </div>
 
   <!-- Compliance Appendices -->

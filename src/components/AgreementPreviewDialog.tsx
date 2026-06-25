@@ -65,6 +65,9 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
       const landlord = tenancy?.landlords
       const tenancyTenants = tenancy?.tenancy_tenants || []
       const tenantNames = tenancyTenants.map((tt: any) => tt.tenants?.full_name).filter(Boolean)
+      
+      // Extract signatures
+      const signatures = (agreement as any).agreement_signatures || []
 
       // Get company logo
       let logoUrl = null
@@ -96,6 +99,7 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
         rentAmount: tenancy?.rent_amount,
         depositAmount: tenancy?.deposit_amount,
         complianceAttachments: [],
+        signatures,
         companyLogo: logoUrl,
         companyName: settingsData?.company_name || 'Property Management'
       })
