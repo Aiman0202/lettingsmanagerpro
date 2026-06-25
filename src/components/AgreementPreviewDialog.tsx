@@ -23,24 +23,38 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
     try {
       // Fetch agreement data with all related info
       const { data: agreement, error: agreementError } = await supabase
-        .from('agreements')
+        .from('generated_agreements')
         .select(`
           *,
-          tenancies (
+          tenancies(
             start_date,
             end_date,
             rent_amount,
             deposit_amount,
-            properties (address, postcode),
-            landlords (full_name),
-            tenancy_tenants (tenants (full_name))
+            deposit_scheme,
+            reference_number,
+            properties(id, address, postcode, type, bedrooms, bathrooms, epc_rating),
+            landlords(id, full_name, email, phone, address_line1, address_line2, city, postcode),
+            tenancy_tenants(
+              tenant_id,
+              is_lead,
+              tenants(id, full_name, email, phone)
+            )
+          ),
+          agreement_signatures(
+            id,
+            signatory_type,
+            signatory_name,
+            signature_image_base64,
+            signed_at
           )
         `)
         .eq('id', agreementId)
         .single()
 
       if (agreementError || !agreement) {
-        showError('Failed to load agreement', 'Could not fetch agreement details for printing')
+        console.error('Agreement fetch error:', agreementError)
+        showError('Failed to load agreement', agreementError?.message || 'Could not fetch agreement details for printing')
         setPrinting(false)
         return
       }
