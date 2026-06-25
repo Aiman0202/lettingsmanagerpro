@@ -60,21 +60,20 @@ export function generateStatementHTML(data: StatementPrintData): string {
   const properties = Array.from(propertyMap.entries()).map(([id, data]) => ({ id, ...data }))
 
   // Generate property breakdown table rows
-  const propertyRows = properties.map(p => `
-    <tr>
+  const propertyRows = properties.map(p => {
+    return `<tr>
       <td>${p.address}</td>
       <td class="text-right">${fmtCurrency(p.rent)}</td>
       <td class="text-right">${fmtCurrency(p.expense)}</td>
       <td class="text-right">${fmtCurrency(p.rent - p.expense)}</td>
-    </tr>
-  `).join('')
+    </tr>`
+  }).join('')
 
   // Generate rent transaction table rows
   const transactionRows = rentTransactions.map(tx => {
     const tenancy = tenancies.find(t => t.id === tx.tenancy_id)
     const property = tenancy?.properties?.address || 'Unknown'
-    return `
-    <tr>
+    return `<tr>
       <td>${fmtDate(tx.paid_date)}</td>
       <td>${property}</td>
       <td>${tx.tenant_name || '—'}</td>
@@ -86,8 +85,7 @@ export function generateStatementHTML(data: StatementPrintData): string {
   // Generate expense table rows
   const expenseRows = expenses.map(exp => {
     const property = exp.properties?.address || 'Unknown'
-    return `
-    <tr>
+    return `<tr>
       <td>${fmtDate(exp.date)}</td>
       <td>${property}</td>
       <td>${exp.category || '—'}</td>
