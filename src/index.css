@@ -107,17 +107,15 @@
 
   /* When printing agreement, hide everything first */
   body.printing-agreement > * {
-    visibility: hidden !important;
+    display: none !important;
   }
 
-  /* Then show ONLY the agreement print dialog */
+  /* Show the agreement print dialog for printing */
   body.printing-agreement .agreement-print-dialog {
-    visibility: visible !important;
     display: block !important;
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: static !important;
     width: 100% !important;
+    max-width: 100% !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
@@ -127,21 +125,51 @@
     padding: 0 !important;
   }
 
-  /* Show all children of the dialog */
-  body.printing-agreement .agreement-print-dialog * {
-    visibility: visible !important;
-  }
-
   /* Hide dialog header */
   body.printing-agreement .agreement-print-dialog .print-hide,
   body.printing-agreement .agreement-print-dialog [class*="DialogHeader"] {
     display: none !important;
   }
 
-  /* Make preview area full height with no background */
-  body.printing-agreement .agreement-print-dialog > div:last-child {
+  /* Make the scrollable preview area display its content naturally */
+  body.printing-agreement .agreement-print-dialog > div {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
     background: white !important;
     padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Ensure agreement content flows across pages */
+  .agreement-content {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Allow tables and sections to break across pages */
+  .agreement-content * {
+    page-break-inside: auto;
+  }
+
+  .agreement-content h1,
+  .agreement-content h2,
+  .agreement-content h3 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+
+  .agreement-content table,
+  .agreement-content .signature-block {
+    page-break-inside: avoid;
+  }
+
+  /* Prevent orphans - keep headings with following content */
+  .agreement-content h1 + *,
+  .agreement-content h2 + *,
+  .agreement-content h3 + * {
+    page-break-before: avoid;
   }
 
   /* Hide navigation and UI chrome for non-agreement pages */
