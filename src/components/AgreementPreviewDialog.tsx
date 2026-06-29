@@ -4,6 +4,7 @@ import { Printer, X, Loader2 } from 'lucide-react'
 import AgreementPrintView from './AgreementPrintView'
 import { supabase } from '@/lib/supabase'
 import { generateAgreementHTML } from '@/utils/agreement-html'
+import { loadAgreementSettings } from '@/utils/agreement-settings'
 import { useToast } from '@/contexts/ToastContext'
 import { useState } from 'react'
 
@@ -87,6 +88,9 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
         }
       }
 
+      // Load layout settings
+      const layoutSettings = await loadAgreementSettings()
+
       // Generate HTML
       const html = generateAgreementHTML({
         agreement,
@@ -101,7 +105,8 @@ export default function AgreementPreviewDialog({ agreementId, open, onClose }: A
         complianceAttachments: [],
         signatures,
         companyLogo: logoUrl,
-        companyName: settingsData?.company_name || 'Property Management'
+        companyName: settingsData?.company_name || 'Property Management',
+        settings: layoutSettings,
       })
 
       // Open print window

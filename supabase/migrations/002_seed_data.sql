@@ -67,7 +67,7 @@ INSERT INTO agreement_clauses (category, title, content_html, sort_order, is_bui
 ('terms_conditions', 'Grant of Tenancy',
 '<h3>2. Grant of Tenancy</h3>
 <p><strong>2.1</strong> The Landlord lets and the Tenant takes the Property for the Term at the Rent, payable as set out in this Agreement.</p>
-<p><strong>2.2</strong> This Tenancy is an Assured Shorthold Tenancy under the Housing Act 1988 (as amended by the Housing Act 1996).</p>
+<p><strong>2.2</strong> This Tenancy is an Assured Periodic Tenancy under the Housing Act 1988 (as amended by the Housing Act 1996).</p>
 <p><strong>2.3</strong> The Tenant''s right to occupy the Property begins on {{start_date}} and, subject to earlier termination in accordance with this Agreement or by law, ends on {{end_date}}.</p>
 <p><strong>2.4</strong> The Tenant acknowledges that they have inspected the Property and accept it in its current condition, subject to any matters noted in the Inventory and Schedule of Condition.</p>',
 2, true),
@@ -249,7 +249,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO agreement_defaults (key, name, body_html)
 VALUES (
   'default_ast',
-  'Assured Shorthold Tenancy Agreement',
+  'Assured Periodic Tenancy Agreement',
   '<h2>1. Parties</h2>
 <p>This Agreement is made on <strong>{{today_date}}</strong> between:</p>
 <p><strong>The Landlord:</strong> {{landlord_name}} of {{landlord_address}}</p>

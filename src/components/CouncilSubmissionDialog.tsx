@@ -10,6 +10,8 @@ import { CheckCircle2, FileText, Printer, Send, AlertTriangle, Package, Loader2 
 import { fetchAgreementAttachments, getAttachmentSignedUrl } from '@/utils/agreement-attachments'
 import { formatDate } from '@/lib/utils'
 import { generateCouncilPackHTML } from '@/utils/council-pack'
+import { generateAgreementHTML } from '@/utils/agreement-html'
+import { loadAgreementSettings } from '@/utils/agreement-settings'
 
 interface CouncilSubmissionDialogProps {
   agreementId: string
@@ -20,12 +22,25 @@ interface CouncilSubmissionDialogProps {
 
 export default function CouncilSubmissionDialog({ agreementId, open, onClose, onSubmitted }: CouncilSubmissionDialogProps) {
   const qc = useQueryClient()
+  const [councilId, setCouncilId] = useState('')
   const [councilName, setCouncilName] = useState('')
   const [councilReference, setCouncilReference] = useState('')
   const [submittedAt, setSubmittedAt] = useState(new Date().toISOString().split('T')[0])
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [packGenerated, setPackGenerated] = useState(false)
+
+  // Load councils from database
+  const { data: councils } = useQuery({
+    queryKey: ['councils-submission'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('local_authorities')
+        .select('*')
+        .order('name')
+      return (data ?? []) as any[]
+    },
+  })
 
   const { data: agreement } = useQuery({
     queryKey: ['agreement-council', agreementId],
@@ -73,6 +88,17 @@ export default function CouncilSubmissionDialog({ agreementId, open, onClose, on
 
   const included = (attachments ?? []).filter((a: any) => a.included_in_council_pack)
   const missingDocs = (attachments ?? []).filter((a: any) => !a.storage_path && a.attachment_type !== 'tenant_reference')
+
+  // Handle council selection
+  const handleCouncilSelect = (selectedCouncilId: string) => {
+    setCouncilId(selectedCouncilId)
+    const selectedCouncil = (councils ?? []).find((c: any) => c.id === selectedCouncilId)
+    if (selectedCouncil) {
+      setCouncilName(selectedCouncil.name)
+    } else {
+      setCouncilName('')
+    }
+  }
 
   async function handleOpenAttachment(a: any) {
     const url = await getAttachmentSignedUrl(a.storage_path, a.source_table)
@@ -138,6 +164,41 @@ export default function CouncilSubmissionDialog({ agreementId, open, onClose, on
         companySettings?.postcode,
       ].filter(Boolean).join(', ')
 
+      // Get company logo for agreement
+      let logoUrl = null
+      if (companySettings?.logo_storage_path) {
+        const { data: signedUrlData } = await supabase.storage
+          .from('company-assets')
+          .createSignedUrl(companySettings.logo_storage_path, 3600)
+        
+        if (signedUrlData?.signedUrl) {
+          logoUrl = signedUrlData.signedUrl
+        }
+      }
+
+      // Load layout settings
+      const layoutSettings = await loadAgreementSettings()
+
+      // Generate proper agreement HTML with cover page, styling, and signatures
+      const formattedAgreementHtml = generateAgreementHTML({
+        agreement,
+        propertyAddress: property.address ?? 'Property',
+        propertyPostcode: property.postcode ?? '',
+        landlordName: landlord.full_name ?? 'Landlord',
+        tenantNames,
+        startDate: tenancy.start_date ?? '',
+        endDate: tenancy.end_date ?? '',
+        rentAmount: tenancy.rent_amount?.toString(),
+        depositAmount: tenancy.deposit_amount?.toString(),
+        complianceAttachments: (attachments ?? [])
+          .filter((a: any) => a.attachment_type === 'compliance_certificate' && a.included_in_council_pack)
+          .map((a: any) => ({ name: a.display_name, type: 'compliance_certificate' })),
+        signatures,
+        companyLogo: logoUrl,
+        companyName: companySettings?.company_name ?? 'Letting Agency',
+        settings: layoutSettings,
+      })
+
       const packHtml = generateCouncilPackHTML({
         councilName: councilName || 'Local Authority',
         councilReference: councilReference || 'PENDING',
@@ -152,7 +213,7 @@ export default function CouncilSubmissionDialog({ agreementId, open, onClose, on
         agentPhone: companySettings?.phone,
         agentEmail: companySettings?.email,
         tenantNames,
-        agreementHtml: agreement.merged_html ?? '<p>Agreement not yet generated.</p>',
+        agreementHtml: formattedAgreementHtml,
         complianceAttachments,
         idAttachments,
         references,
@@ -221,7 +282,23 @@ export default function CouncilSubmissionDialog({ agreementId, open, onClose, on
             {/* Council details */}
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-3 space-y-1.5">
-                <Label>Council / Local Authority Name</Label>
+                <Label>Council / Local Authority</Label>
+                <select
+                  value={councilId}
+                  onChange={(e) => handleCouncilSelect(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select a council...</option>
+                  {(councils ?? []).map((council: any) => (
+                    <option key={council.id} value={council.id}>
+                      {council.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">Or type a custom council name below</p>
+              </div>
+              <div className="col-span-3 space-y-1.5">
+                <Label>Council Name (auto-filled or custom)</Label>
                 <Input
                   value={councilName}
                   onChange={(e) => setCouncilName(e.target.value)}

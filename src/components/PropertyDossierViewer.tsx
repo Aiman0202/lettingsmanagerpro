@@ -45,8 +45,37 @@ export default function PropertyDossierViewer({ open, onClose, tenancyId, compan
         .section { page-break-inside: avoid; margin-bottom: 20px; }
         .cover { text-align: center; padding: 60px 0; }
         .cover h1 { font-size: 32px; }
-        @media print { .no-print { display: none; } }
+        @media print { 
+          .no-print { display: none; }
+          .close-button { display: none !important; }
+        }
+        
+        .close-button {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 9999;
+          background: #ef4444;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: bold;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          transition: all 0.2s;
+        }
+        
+        .close-button:hover {
+          background: #dc2626;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+        }
       </style></head><body>
+      <button class="close-button" onclick="window.close()" title="Close and return to app">
+        ✕ Close Window
+      </button>
       ${content.innerHTML}
       </body></html>
     `)

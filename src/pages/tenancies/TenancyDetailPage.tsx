@@ -17,6 +17,8 @@ import TerminationFormDialog from '@/components/TerminationFormDialog'
 import InspectionFormDialog from '@/components/InspectionFormDialog'
 import RenewalFormDialog from '@/components/RenewalFormDialog'
 import AmendmentFormDialog from '@/components/AmendmentFormDialog'
+import AmendmentHistory from '@/components/AmendmentHistory'
+import RenewalHistory from '@/components/RenewalHistory'
 import AgreementPreviewDialog from '@/components/AgreementPreviewDialog'
 import SignatureCaptureModal from '@/pages/agreements/SignatureCaptureModal'
 import CouncilSubmissionDialog from '@/components/CouncilSubmissionDialog'
@@ -44,6 +46,7 @@ export default function TenancyDetailPage() {
   // Workflow transition dialogs
   const [showSignCompleteDialog, setShowSignCompleteDialog] = useState(false)
   const [showRenewPromptDialog, setShowRenewPromptDialog] = useState(false)
+  const [lastRenewalType, setLastRenewalType] = useState<'extension' | 'new_agreement' | null>(null)
 
   const { data: companySettings } = useQuery({
     queryKey: ['company-settings-tenancy'],
@@ -143,6 +146,19 @@ export default function TenancyDetailPage() {
     enabled: !!id,
   })
 
+  const { data: amendments } = useQuery({
+    queryKey: ['tenancy-amendments', id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('tenancy_amendments')
+        .select('*')
+        .eq('tenancy_id', id!)
+        .order('effective_date', { ascending: true })
+      return data ?? []
+    },
+    enabled: !!id,
+  })
+
   async function handleCreateAgreement() {
     setCreatingAgreement(true)
     await generateAgreementForTenancy(id!)
@@ -154,7 +170,8 @@ export default function TenancyDetailPage() {
     setShowSignCompleteDialog(true)
   }
 
-  function handleRenewed() {
+  function handleRenewed(renewalType?: 'extension' | 'new_agreement') {
+    setLastRenewalType(renewalType || null)
     setShowRenewPromptDialog(true)
   }
 
@@ -196,6 +213,59 @@ export default function TenancyDetailPage() {
           </Button>
         )}
       </div>
+
+      {/* Tenancy Description */}
+      {t.description && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Tenancy Description</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{t.description}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tenancy Members */}
+      {tenants.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Tenancy Members ({tenants.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {tenants.map((tenant: any, index: number) => {
+                const isLead = (t.tenancy_tenants ?? []).find((tt: any) => tt.tenant_id === tenant.id)?.is_lead
+                return (
+                  <div key={tenant.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm shrink-0">
+                      {tenant.full_name?.charAt(0)?.toUpperCase() || 'T'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-sm font-semibold text-gray-900">{tenant.full_name}</p>
+                        {isLead && (
+                          <Badge variant="default" className="text-xs px-1.5 py-0">
+                            Lead Tenant
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="space-y-0.5 text-xs text-gray-600">
+                        {tenant.email && <p>Email: {tenant.email}</p>}
+                        {tenant.phone && <p>Phone: {tenant.phone}</p>}
+                        {tenant.date_of_birth && <p>DOB: {formatDate(tenant.date_of_birth)}</p>}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-4 gap-4">
@@ -544,6 +614,9 @@ export default function TenancyDetailPage() {
         </Card>
       </div>
 
+      {/* Renewal History */}
+      <RenewalHistory tenancyId={id!} />
+
       </div>
       )}
 
@@ -601,6 +674,8 @@ export default function TenancyDetailPage() {
         tenancyId={id!}
         currentEndDate={t.end_date}
         currentRentAmount={t.rent_amount}
+        currentAgreement={agreement}
+        amendments={amendments}
         onRenewed={handleRenewed}
       />
 
@@ -652,7 +727,7 @@ export default function TenancyDetailPage() {
 
       {/* Renewal → New Agreement prompt */}
       <Dialog open={showRenewPromptDialog} onOpenChange={() => setShowRenewPromptDialog(false)}>
-        <DialogContent onClose={() => setShowRenewPromptDialog(false)} className="max-w-sm">
+        <DialogContent onClose={() => setShowRenewPromptDialog(false)} className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5 text-green-600" /> Tenancy Renewed
@@ -660,18 +735,42 @@ export default function TenancyDetailPage() {
           </DialogHeader>
           <div className="p-4 text-center space-y-3">
             <RefreshCw className="h-12 w-12 text-green-500 mx-auto" />
-            <p className="text-gray-700">The tenancy has been renewed successfully.</p>
-            <p className="text-sm text-gray-500">Would you like to create a new agreement for the renewed period?</p>
+            <p className="text-gray-700 font-semibold">The tenancy has been renewed successfully.</p>
+            
+            {lastRenewalType === 'extension' ? (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">A Deed of Variation has been created for the simple extension.</p>
+                <p className="text-sm text-gray-500">Would you like to generate the deed document for signing?</p>
+              </div>
+            ) : lastRenewalType === 'new_agreement' ? (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">All terms have been carried forward to the new agreement period.</p>
+                <p className="text-sm text-gray-500">Would you like to create a new agreement document with the updated terms?</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Would you like to create a new agreement for the renewed period?</p>
+            )}
           </div>
           <DialogFooter className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => setShowRenewPromptDialog(false)}>Skip</Button>
-            <Button onClick={async () => {
-              setShowRenewPromptDialog(false)
-              setActiveTab('agreement')
-              await handleCreateAgreement()
-            }}>
-              Create New Agreement
-            </Button>
+            {lastRenewalType === 'extension' ? (
+              <Button onClick={() => {
+                setShowRenewPromptDialog(false)
+                setActiveTab('agreement')
+                // TODO: Generate Deed of Variation
+                alert('Deed of Variation generation coming soon')
+              }}>
+                Generate Deed of Variation
+              </Button>
+            ) : (
+              <Button onClick={async () => {
+                setShowRenewPromptDialog(false)
+                setActiveTab('agreement')
+                await handleCreateAgreement()
+              }}>
+                Create New Agreement
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -22,7 +22,7 @@ export default function TenancyCreatePage() {
   const [form, setForm] = useState({
     property_id: '', landlord_id: '', tenant_ids: [] as string[], lead_tenant_id: '',
     start_date: '', end_date: '', rent_amount: '', deposit_amount: '',
-    deposit_scheme: '', status: 'active',
+    deposit_scheme: '', description: '', status: 'active', council_id: '',
     auto_rent_schedule: true, auto_agreement: true, mark_property_let: false,
   })
   const [saving, setSaving] = useState(false)
@@ -50,6 +50,13 @@ export default function TenancyCreatePage() {
     queryKey: ['tenants-dropdown'],
     queryFn: async () => {
       const { data } = await supabase.from('tenants').select('id, full_name, email').order('full_name')
+      return data ?? []
+    },
+  })
+  const { data: councils } = useQuery({
+    queryKey: ['councils-dropdown'],
+    queryFn: async () => {
+      const { data } = await supabase.from('local_authorities').select('id, name').order('name')
       return data ?? []
     },
   })
@@ -116,11 +123,13 @@ export default function TenancyCreatePage() {
       .insert({
         property_id: form.property_id,
         landlord_id: form.landlord_id,
+        council_id: form.council_id || null,
         start_date: form.start_date,
         end_date: form.end_date,
         rent_amount: parseFloat(form.rent_amount),
         deposit_amount: parseFloat(form.deposit_amount || '0'),
         deposit_scheme: form.deposit_scheme || null,
+        description: form.description || null,
         status: form.status,
         reference_number: ref,
       })
@@ -359,6 +368,33 @@ export default function TenancyCreatePage() {
                     <option value="MyDeposits">MyDeposits</option>
                   </Select>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Council / Local Authority</Label>
+                <select
+                  value={form.council_id}
+                  onChange={(e) => setForm({ ...form, council_id: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select council (optional)</option>
+                  {(councils ?? []).map((council: any) => (
+                    <option key={council.id} value={council.id}>
+                      {council.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">Required for HMO/licensing compliance</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tenancy Description</Label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  rows={4}
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="Special terms, arrangements, or notes about this tenancy..."
+                />
+                <p className="text-xs text-gray-500">Optional. This description will be available as a merge field in agreement templates.</p>
               </div>
             </CardContent>
           )}

@@ -6,12 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
-import { Eye, Send, CheckCircle, Building2, Users, ExternalLink, Info, FileText } from 'lucide-react'
+import { Eye, Send, CheckCircle, Building2, Users, ExternalLink, Info } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import AgreementPreviewDialog from '@/components/AgreementPreviewDialog'
 import CouncilSubmissionDialog from '@/components/CouncilSubmissionDialog'
-import TemplateEditorDialog from '@/features/agreements/editor/components/TemplateEditorDialog'
 
 type StatusFilter = 'all' | 'pending' | 'signed' | 'submitted'
 
@@ -20,7 +19,6 @@ export default function AgreementsPage() {
   const { can } = useAuth()
   const [previewAgreementId, setPreviewAgreementId] = useState<string | null>(null)
   const [councilAgreementId, setCouncilAgreementId] = useState<string | null>(null)
-  const [showTemplateEditor, setShowTemplateEditor] = useState(false)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   const { data: agreements, error: agreementsError, isLoading } = useQuery({
@@ -66,17 +64,9 @@ export default function AgreementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tenancy Agreements</h1>
-          <p className="text-gray-500 text-sm mt-1">All generated tenancy agreements</p>
-        </div>
-        {can('agreements', 'write') && (
-          <Button variant="outline" size="sm" onClick={() => setShowTemplateEditor(true)} className="gap-1.5">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Edit Template</span>
-          </Button>
-        )}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Tenancy Agreements</h1>
+        <p className="text-gray-500 text-sm mt-1">All generated tenancy agreements</p>
       </div>
 
       {/* Info note */}
@@ -203,13 +193,6 @@ export default function AgreementsPage() {
           open={!!councilAgreementId}
           onClose={() => setCouncilAgreementId(null)}
           onSubmitted={() => { setCouncilAgreementId(null); qc.invalidateQueries({ queryKey: ['agreements'] }) }}
-        />
-      )}
-
-      {showTemplateEditor && (
-        <TemplateEditorDialog
-          open={showTemplateEditor}
-          onClose={() => setShowTemplateEditor(false)}
         />
       )}
     </div>

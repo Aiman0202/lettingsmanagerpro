@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
-import { Building2, Users, ClipboardList, Wrench, PoundSterling, AlertTriangle, ArrowRight, Sparkles, FileCheck, Home, Calendar, Clock, TrendingUp, TrendingDown, Minus, Activity, BarChart3, Percent, Banknote, Timer, ShieldCheck } from 'lucide-react'
+import { Building2, Users, ClipboardList, Wrench, PoundSterling, AlertTriangle, ArrowRight, Sparkles, FileCheck, Home, Calendar, Clock, TrendingUp, TrendingDown, Minus, Activity, BarChart3, Percent, Banknote, Timer, ShieldCheck, MessageSquare } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import CorkBoard from '@/components/CorkBoard'
 
 function StatCard({ title, value, icon: Icon, color, href }: {
   title: string; value: string | number; icon: React.ElementType; color: string; href: string
@@ -433,6 +434,20 @@ export default function DashboardPage() {
               color={analytics?.complianceCoverage !== undefined && analytics.complianceCoverage < 70 ? 'text-red-600' : 'text-green-600'}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Sticky Notes Cork Board */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-amber-600" />
+            Quick Notes Board
+          </CardTitle>
+          <p className="text-sm text-gray-500 mt-1">Drag, drop, and organize your thoughts. Double-click anywhere to create a note.</p>
+        </CardHeader>
+        <CardContent>
+          <CorkBoard />
         </CardContent>
       </Card>
     </div>

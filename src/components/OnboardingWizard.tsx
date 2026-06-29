@@ -15,6 +15,7 @@ import { generateRentSchedule } from '@/utils/finance'
 import { generateAgreementForTenancy } from '@/utils/agreements'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { generateNextReference } from '@/utils/references'
+import { compressImage, generatePhotoFilename, isJPEG, formatFileSize } from '@/utils/image-compression'
 import {
   Building2, UserCheck, Users, Calendar, PoundSterling,
   CheckCircle, ChevronLeft, ChevronRight, Sparkles, FileCheck,
@@ -228,15 +229,34 @@ export default function OnboardingWizard() {
     try {
       const propId = propertyForm.id
       const isFirst = !(await supabase.from('property_photos').select('id').eq('property_id', propId).limit(1)).data?.length
+      
+      // Get property address for naming
+      const address = propertyForm.address || 'property'
+      const postcode = propertyForm.postcode
+
       for (let i = 0; i < photoFiles.length; i++) {
         const file = photoFiles[i]
-        const ext = file.name.split('.').pop()
-        const path = `${propId}/${Date.now()}-${i}.${ext}`
-        const { error: uploadErr } = await supabase.storage.from('property-photos').upload(path, file)
-        if (!uploadErr) {
-          await supabase.from('property_photos').insert({
-            property_id: propId, storage_path: path, is_primary: isFirst && i === 0,
-          } as any)
+        let uploadFile: File | Blob = file
+
+        try {
+          // Compress JPEG images
+          if (isJPEG(file)) {
+            const compressedBlob = await compressImage(file, 1920, 0.8)
+            uploadFile = new File([compressedBlob], file.name, { type: 'image/jpeg' })
+          }
+
+          // Generate descriptive filename with property address
+          const filename = generatePhotoFilename(address, postcode, i, file.name)
+          const path = `${propId}/${filename}`
+
+          const { error: uploadErr } = await supabase.storage.from('property-photos').upload(path, uploadFile)
+          if (!uploadErr) {
+            await supabase.from('property_photos').insert({
+              property_id: propId, storage_path: path, is_primary: isFirst && i === 0,
+            } as any)
+          }
+        } catch (err) {
+          console.error(`Failed to upload ${file.name}:`, err)
         }
       }
       setPhotosUploaded(true)
@@ -715,13 +735,12 @@ export default function OnboardingWizard() {
                       <ul className="text-xs text-gray-600 mt-1 space-y-1">
                         {photoFiles.map((f, i) => (
                           <li key={i} className="flex items-center justify-between">
-                            <span>{f.name} ({(f.size / 1024).toFixed(1)} KB)</span>
-                            <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setPhotoFiles(photoFiles.filter((_, j) => j !== i))}>
-                              <X className="h-3 w-3" />
-                            </Button>
+                            <span className="truncate flex-1">{f.name}</span>
+                            <span className="text-gray-500 ml-2">{formatFileSize(f.size)}</span>
                           </li>
                         ))}
                       </ul>
+                      <p className="text-xs text-green-700 mt-2">✓ JPEG images will be compressed (max 1920px, 80% quality)</p>
                     </div>
                   )}
                   <Button variant="outline" size="sm" onClick={() => { setP1Step(3); }}>Skip — No photos</Button>

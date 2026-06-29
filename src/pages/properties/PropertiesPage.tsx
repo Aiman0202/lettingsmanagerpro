@@ -367,6 +367,7 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
   const [form, setForm] = useState({
     address: '', postcode: '', type: 'flat', bedrooms: '', bathrooms: '',
     status: 'available' as PropertyStatus, description: '', epc_rating: '', landlord_id: '',
+    utility_note: '', inventory_note: '',
   })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -384,7 +385,7 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
     enabled: !!editId,
     queryFn: async () => {
       const { data } = await supabase.from('properties').select('*').eq('id', editId!).single()
-      return data
+      return data as any
     },
   })
 
@@ -401,6 +402,8 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
         description: existing.description ?? '',
         epc_rating: existing.epc_rating ?? '',
         landlord_id: existing.landlord_id ?? '',
+        utility_note: existing.utility_note ?? '',
+        inventory_note: existing.inventory_note ?? '',
       })
     }
   })
@@ -426,6 +429,8 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
         description: form.description || null,
         epc_rating: form.epc_rating || null,
         landlord_id: form.landlord_id || null,
+        utility_note: form.utility_note || null,
+        inventory_note: form.inventory_note || null,
       }
 
       if (editId) {
@@ -506,6 +511,24 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
               </FormField>
               <FormField label="Description" className="col-span-2">
                 <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
+              </FormField>
+              <FormField label="Utility Note" className="col-span-2">
+                <Textarea 
+                  value={form.utility_note} 
+                  onChange={(e) => setForm({ ...form, utility_note: e.target.value })} 
+                  rows={3}
+                  placeholder="Gas meter: 12345678, Electric meter: 87654321, Water: Thames Water..."
+                />
+                <p className="text-xs text-gray-500 mt-1">Utility meter numbers, providers, or special arrangements</p>
+              </FormField>
+              <FormField label="Inventory Note" className="col-span-2">
+                <Textarea 
+                  value={form.inventory_note} 
+                  onChange={(e) => setForm({ ...form, inventory_note: e.target.value })} 
+                  rows={3}
+                  placeholder="All furniture is brand new, white goods included..."
+                />
+                <p className="text-xs text-gray-500 mt-1">Special notes about inventory items or condition</p>
               </FormField>
             </div>
           </div>

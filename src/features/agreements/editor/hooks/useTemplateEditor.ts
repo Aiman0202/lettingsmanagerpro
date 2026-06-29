@@ -14,6 +14,8 @@ import { Underline } from '@tiptap/extension-underline'
 import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
 import { TextAlign } from '@tiptap/extension-text-align'
+import { HorizontalRule } from '@tiptap/extension-horizontal-rule'
+import { HardBreak } from '@tiptap/extension-hard-break'
 import { MergeFieldNode } from '../extensions/MergeFieldNode'
 import { preprocessTemplateHTML } from '../utils/preprocessTemplateHTML'
 
@@ -68,6 +70,8 @@ export function useTemplateEditor({
       TableRow,
       TableCell,
       TableHeader,
+      HorizontalRule,
+      HardBreak,
       MergeFieldNode,
     ],
     content: processedInitialHtml,
@@ -146,9 +150,21 @@ export function useTemplateEditor({
     editor.chain().focus().clearNodes().unsetAllMarks().run()
   }, [editor])
 
+  /**
+   * Insert a page break at the current cursor position.
+   */
+  const insertPageBreak = useCallback(() => {
+    if (!editor) return
+    // Insert horizontal rule that will act as page break when printing
+    editor.chain().focus().setHorizontalRule().run()
+    // Move cursor to after the horizontal rule
+    editor.chain().focus().setParagraph().run()
+  }, [editor])
+
   return {
     editor,
     insertMergeField,
+    insertPageBreak,
     getHTML,
     validate,
     undo,

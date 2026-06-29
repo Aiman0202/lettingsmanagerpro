@@ -89,10 +89,10 @@ export default function TenanciesPage() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={9} className="text-center py-10 text-gray-400">Loading…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} className="text-center py-10 text-gray-400">Loading…</TableCell></TableRow>
             ) : (tenancies ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10">
+                <TableCell colSpan={10} className="text-center py-10">
                   <ClipboardList className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                   <p className="text-gray-400">No tenancies found</p>
                 </TableCell>

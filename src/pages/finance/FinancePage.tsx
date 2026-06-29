@@ -102,6 +102,9 @@ export default function FinancePage() {
           <Link to="/finance/statements">
             <Button variant="outline"><FileText className="h-4 w-4 mr-1" /> Landlord Statements</Button>
           </Link>
+          <Link to="/finance/tenant-statements">
+            <Button variant="outline"><FileText className="h-4 w-4 mr-1" /> Tenant Statements</Button>
+          </Link>
           <Link to="/finance/arrears">
             <Button variant="outline"><AlertTriangle className="h-4 w-4 mr-1" /> Arrears</Button>
           </Link>

@@ -10,10 +10,14 @@ import {
   Eraser, Undo, Redo,
   Palette, Highlighter,
   Pilcrow,
+  Minus as PageBreak,
+  ArrowDownLeft,
+  SeparatorHorizontal,
 } from 'lucide-react'
 
 interface EditorToolbarProps {
   editor: Editor | null
+  onInsertPageBreak?: () => void
 }
 
 const TEXT_COLORS = [
@@ -47,7 +51,7 @@ const FONT_SIZES = [
   { label: '30pt', value: '30pt' },
 ]
 
-export default function EditorToolbar({ editor }: EditorToolbarProps) {
+export default function EditorToolbar({ editor, onInsertPageBreak }: EditorToolbarProps) {
   if (!editor) return null
 
   const addTable = () => {
@@ -277,6 +281,42 @@ export default function EditorToolbar({ editor }: EditorToolbarProps) {
           label="Delete Column"
           isActive={false}
           onClick={deleteColumn}
+        />
+
+        <div className="toolbar-divider" />
+
+        {/* Page Break */}
+        <ToolbarButton
+          icon={PageBreak}
+          label="Insert Page Break"
+          isActive={false}
+          onClick={() => {
+            if (onInsertPageBreak) {
+              onInsertPageBreak()
+            } else {
+              // Fallback: insert directly
+              editor.chain().focus().setHorizontalRule().run()
+              editor.chain().focus().setParagraph().run()
+            }
+          }}
+        />
+
+        {/* Line Break */}
+        <ToolbarButton
+          icon={ArrowDownLeft}
+          label="Insert Line Break (Shift+Enter)"
+          isActive={false}
+          onClick={() => editor.chain().focus().setHardBreak().run()}
+        />
+
+        {/* Section Divider */}
+        <ToolbarButton
+          icon={SeparatorHorizontal}
+          label="Insert Section Divider"
+          isActive={false}
+          onClick={() => {
+            editor.chain().focus().setHorizontalRule().run()
+          }}
         />
 
         <div className="toolbar-divider" />

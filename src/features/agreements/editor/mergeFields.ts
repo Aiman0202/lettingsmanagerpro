@@ -1,7 +1,7 @@
 export type MergeFieldCategory =
   | 'Tenancy' | 'Property' | 'Landlord' | 'Tenant'
   | 'Agency' | 'Financial' | 'Inventory' | 'HMO'
-  | 'Guarantor' | 'Utilities' | 'Other'
+  | 'Guarantor' | 'Utilities' | 'Council' | 'Other'
 
 export interface MergeField {
   key: string
@@ -33,6 +33,12 @@ export const MERGE_FIELDS: MergeField[] = [
   { key: 'property_address', label: 'Property Address', category: 'Property' },
   { key: 'property_postcode', label: 'Property Postcode', category: 'Property' },
   { key: 'property_type', label: 'Property Type', category: 'Property' },
+  { key: 'property_description', label: 'Property Description', category: 'Property' },
+  { key: 'property_bedrooms', label: 'Property Bedrooms', category: 'Property' },
+  { key: 'property_bathrooms', label: 'Property Bathrooms', category: 'Property' },
+  { key: 'property_epc_rating', label: 'Property EPC Rating', category: 'Property' },
+  { key: 'property_utility_note', label: 'Property Utility Note', category: 'Property' },
+  { key: 'property_inventory_note', label: 'Property Inventory Note', category: 'Property' },
 
   // Landlord
   { key: 'landlord_name', label: 'Landlord Name', category: 'Landlord' },
@@ -51,6 +57,30 @@ export const MERGE_FIELDS: MergeField[] = [
   { key: 'tenant_email', label: 'Tenant Email', category: 'Tenant' },
   { key: 'tenant_id_number', label: 'Tenant ID Number', category: 'Tenant' },
   { key: 'lead_tenant_name', label: 'Lead Tenant Name', category: 'Tenant' },
+  { key: 'tenancy_description', label: 'Tenancy Description', category: 'Tenant' },
+  { key: 'all_tenant_names', label: 'All Tenant Names', category: 'Tenant' },
+  { key: 'all_tenant_emails', label: 'All Tenant Emails', category: 'Tenant' },
+  { key: 'all_tenant_phones', label: 'All Tenant Phones', category: 'Tenant' },
+  { key: 'tenant_1_name', label: 'Tenant 1 Name', category: 'Tenant' },
+  { key: 'tenant_1_email', label: 'Tenant 1 Email', category: 'Tenant' },
+  { key: 'tenant_1_phone', label: 'Tenant 1 Phone', category: 'Tenant' },
+  { key: 'tenant_1_dob', label: 'Tenant 1 Date of Birth', category: 'Tenant' },
+  { key: 'tenant_2_name', label: 'Tenant 2 Name', category: 'Tenant' },
+  { key: 'tenant_2_email', label: 'Tenant 2 Email', category: 'Tenant' },
+  { key: 'tenant_2_phone', label: 'Tenant 2 Phone', category: 'Tenant' },
+  { key: 'tenant_2_dob', label: 'Tenant 2 Date of Birth', category: 'Tenant' },
+  { key: 'tenant_3_name', label: 'Tenant 3 Name', category: 'Tenant' },
+  { key: 'tenant_3_email', label: 'Tenant 3 Email', category: 'Tenant' },
+  { key: 'tenant_3_phone', label: 'Tenant 3 Phone', category: 'Tenant' },
+  { key: 'tenant_3_dob', label: 'Tenant 3 Date of Birth', category: 'Tenant' },
+  { key: 'tenant_4_name', label: 'Tenant 4 Name', category: 'Tenant' },
+  { key: 'tenant_4_email', label: 'Tenant 4 Email', category: 'Tenant' },
+  { key: 'tenant_4_phone', label: 'Tenant 4 Phone', category: 'Tenant' },
+  { key: 'tenant_4_dob', label: 'Tenant 4 Date of Birth', category: 'Tenant' },
+  { key: 'tenant_5_name', label: 'Tenant 5 Name', category: 'Tenant' },
+  { key: 'tenant_5_email', label: 'Tenant 5 Email', category: 'Tenant' },
+  { key: 'tenant_5_phone', label: 'Tenant 5 Phone', category: 'Tenant' },
+  { key: 'tenant_5_dob', label: 'Tenant 5 Date of Birth', category: 'Tenant' },
   { key: 'family_member_1_name', label: 'Family Member 1 Name', category: 'Tenant' },
   { key: 'family_member_1_dob', label: 'Family Member 1 Date of Birth', category: 'Tenant' },
   { key: 'family_member_1_relation', label: 'Family Member 1 Relation', category: 'Tenant' },
@@ -106,6 +136,15 @@ export const MERGE_FIELDS: MergeField[] = [
   { key: 'electric_meter_number', label: 'Electric Meter Number', category: 'Utilities' },
   { key: 'water_charges', label: 'Water Charges', category: 'Utilities' },
   { key: 'council_tax_band', label: 'Council Tax Band', category: 'Utilities' },
+
+  // Council
+  { key: 'council_name', label: 'Council Name', category: 'Council' },
+  { key: 'council_address', label: 'Council Address', category: 'Council' },
+  { key: 'council_phone', label: 'Council Phone', category: 'Council' },
+  { key: 'council_email', label: 'Council Email', category: 'Council' },
+  { key: 'council_website', label: 'Council Website', category: 'Council' },
+  { key: 'council_licence_type', label: 'Council Licence Type', category: 'Council' },
+  { key: 'council_reference', label: 'Council Reference', category: 'Council' },
 ]
 
 export const MERGE_FIELDS_BY_CATEGORY = (() => {

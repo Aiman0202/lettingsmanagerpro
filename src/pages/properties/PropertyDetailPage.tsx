@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Plus, AlertTriangle, CheckCircle, Clock, FileText, Upload, Trash2, Star, ShieldCheck, Ticket, Download, Calendar, Eye, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Plus, AlertTriangle, CheckCircle, Clock, FileText, Upload, Trash2, Star, ShieldCheck, Ticket, Download, Calendar, Eye, MessageSquare, Zap, ClipboardList } from 'lucide-react'
 import { formatDate, getComplianceStatus, getDaysUntil } from '@/lib/utils'
 import ComplianceFormDialog from '@/components/ComplianceFormDialog'
 import PropertyTimeline from '@/components/PropertyTimeline'
@@ -19,7 +19,10 @@ import TicketFormDialog from '@/components/TicketFormDialog'
 import ViewingFormDialog from '@/components/ViewingFormDialog'
 import ViewingFeedbackDialog from '@/components/ViewingFeedbackDialog'
 import PhotoLightbox from '@/components/PhotoLightbox'
+import InventoryItemsTab from '@/components/InventoryItemsTab'
+import { compressImage, generatePhotoFilename, isJPEG, formatFileSize } from '@/utils/image-compression'
 import { logAudit } from '@/lib/audit'
+import { useToast } from '@/contexts/ToastContext'
 
 export default function PropertyDetailPage() {
   const { id } = useParams()
@@ -157,6 +160,28 @@ export default function PropertyDetailPage() {
             {property.description && (
               <p className="text-gray-600 border-t pt-3">{property.description}</p>
             )}
+            {property.utility_note && (
+              <div className="border-t pt-3">
+                <div className="flex items-start gap-2">
+                  <Zap className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 mb-1">Utility Note</p>
+                    <p className="text-sm text-gray-600 whitespace-pre-wrap">{property.utility_note}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {property.inventory_note && (
+              <div className="border-t pt-3">
+                <div className="flex items-start gap-2">
+                  <ClipboardList className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 mb-1">Inventory Note</p>
+                    <p className="text-sm text-gray-600 whitespace-pre-wrap">{property.inventory_note}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -274,6 +299,16 @@ export default function PropertyDetailPage() {
                 })}
               </ul>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Inventory */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Property Inventory</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <InventoryItemsTab propertyId={id!} />
           </CardContent>
         </Card>
       </div>
@@ -497,35 +532,86 @@ export default function PropertyDetailPage() {
 
 function PhotoUploadDialog({ open, onClose, propertyId }: { open: boolean; onClose: () => void; propertyId: string }) {
   const qc = useQueryClient()
+  const { success, error: showError } = useToast()
   const [files, setFiles] = useState<FileList | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [compressionInfo, setCompressionInfo] = useState<{ original: number; compressed: number }[]>([])
+
+  // Fetch property details for address-based naming
+  const { data: property } = useQuery({
+    queryKey: ['property-minimal', propertyId],
+    enabled: open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('properties')
+        .select('address, postcode')
+        .eq('id', propertyId)
+        .single()
+      return data as any
+    },
+  })
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault()
     if (!files || files.length === 0) return
 
     setUploading(true)
+    setCompressionInfo([])
     const isFirst = !(await supabase.from('property_photos').select('id').eq('property_id', propertyId).limit(1)).data?.length
+
+    const address = property?.address || 'property'
+    const postcode = property?.postcode
+    
+    let failureCount = 0
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const ext = file.name.split('.').pop()
-      const path = `${propertyId}/${Date.now()}-${i}.${ext}`
+      let uploadFile: File | Blob = file
+      let compressedSize = file.size
 
-      const { error: uploadErr } = await supabase.storage.from('property-photos').upload(path, file)
-      if (!uploadErr) {
-        await supabase.from('property_photos').insert({
-          property_id: propertyId,
-          storage_path: path,
-          is_primary: isFirst && i === 0,
-        } as any)
+      try {
+        // Compress JPEG images
+        if (isJPEG(file)) {
+          const compressedBlob = await compressImage(file, 1920, 0.8)
+          uploadFile = new File([compressedBlob], file.name, { type: 'image/jpeg' })
+          compressedSize = compressedBlob.size
+        }
+
+        // Generate descriptive filename with property address
+        const filename = generatePhotoFilename(address, postcode, i, file.name)
+        const path = `${propertyId}/${filename}`
+
+        const { error: uploadErr } = await supabase.storage.from('property-photos').upload(path, uploadFile)
+        if (!uploadErr) {
+          await supabase.from('property_photos').insert({
+            property_id: propertyId,
+            storage_path: path,
+            is_primary: isFirst && i === 0,
+          } as any)
+
+          setCompressionInfo(prev => [...prev, { original: file.size, compressed: compressedSize }])
+        } else {
+          console.error(`Failed to upload ${file.name}:`, uploadErr)
+          failureCount++
+        }
+      } catch (err) {
+        console.error(`Failed to upload ${file.name}:`, err)
+        failureCount++
       }
+    }
+
+    // Show error if any uploads failed
+    if (failureCount > 0) {
+      showError('Upload Incomplete', `${failureCount} of ${files.length} photos failed to upload`)
+    } else {
+      success('Photos uploaded', `${files.length} photo(s) uploaded successfully`)
     }
 
     setUploading(false)
     qc.invalidateQueries({ queryKey: ['property-photos', propertyId] })
     logAudit({ action: 'photo_uploaded', resource: 'property', resourceId: propertyId, details: { count: files.length } })
     setFiles(null)
+    setCompressionInfo([])
     onClose()
   }
 
@@ -541,13 +627,30 @@ function PhotoUploadDialog({ open, onClose, propertyId }: { open: boolean; onClo
               <p className="text-xs text-gray-500">You can select multiple photos at once</p>
             </div>
             {files && files.length > 0 && (
-              <div className="border rounded p-3">
+              <div className="border rounded p-3 space-y-2">
                 <p className="text-sm font-medium">{files.length} photo(s) selected:</p>
-                <ul className="text-xs text-gray-600 mt-1 space-y-1">
-                  {Array.from(files).map((f, i) => (
-                    <li key={i}>{f.name} ({(f.size / 1024).toFixed(1)} KB)</li>
-                  ))}
+                <ul className="text-xs text-gray-600 space-y-1">
+                  {Array.from(files).map((f, i) => {
+                    const info = compressionInfo[i]
+                    const saved = info ? info.original - info.compressed : 0
+                    const savedPercent = info ? Math.round((saved / info.original) * 100) : 0
+                    
+                    return (
+                      <li key={i} className="flex items-center justify-between">
+                        <span className="truncate flex-1">{f.name}</span>
+                        <span className="text-gray-500 ml-2">{formatFileSize(f.size)}</span>
+                        {info && saved > 0 && (
+                          <span className="text-green-600 ml-2 font-medium">(-{savedPercent}%)</span>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
+                {compressionInfo.length > 0 && (
+                  <div className="pt-2 border-t text-xs text-green-700">
+                    ✓ JPEG images will be compressed (max 1920px, 80% quality)
+                  </div>
+                )}
               </div>
             )}
           </div>

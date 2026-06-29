@@ -4,10 +4,13 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { CheckCircle, PenLine, ChevronRight, User, Eye } from 'lucide-react'
+import { CheckCircle, PenLine, ChevronRight, User, Eye, Hand, Trash2 } from 'lucide-react'
 import SignaturePad from 'signature_pad'
 import { embedSignaturesIntoAgreement } from '@/utils/agreements'
+import { useSwipe } from '@/hooks/useSwipe'
+import { useToast } from '@/contexts/ToastContext'
 
 interface Signatory {
   type: 'tenant' | 'agent'
@@ -59,8 +62,13 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
   const [topazAvailable, setTopazAvailable] = useState(false)
   const [captureMode, setCaptureMode] = useState<'detecting' | 'topaz' | 'touch'>('detecting')
   const [saving, setSaving] = useState(false)
+  const [isDrawing, setIsDrawing] = useState(false)
+  const [canvasSize, setCanvasSize] = useState({ width: 560, height: 200 })
+  const [isLandscape, setIsLandscape] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const canvasContainerRef = useRef<HTMLDivElement>(null)
   const sigPadRef = useRef<SignaturePad | null>(null)
+  const { success, error: showError } = useToast()
 
   const { data: agreement } = useQuery({
     queryKey: ['agreement-detail', agreementId],
@@ -118,16 +126,116 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
 
   // Init touch signature pad when mode is touch
   useEffect(() => {
+    // Cleanup previous instance first
+    if (sigPadRef.current) {
+      sigPadRef.current.clear()
+      sigPadRef.current = null
+    }
+    
     if (captureMode === 'touch' && canvasRef.current) {
-      sigPadRef.current = new SignaturePad(canvasRef.current, {
+      const isMobile = window.innerWidth < 768
+      const canvas = canvasRef.current
+      
+      sigPadRef.current = new SignaturePad(canvas, {
         backgroundColor: 'rgb(255,255,255)',
         penColor: 'rgb(0,0,0)',
-        minWidth: 1,
-        maxWidth: 3,
+        minWidth: isMobile ? 1.5 : 1,
+        maxWidth: isMobile ? 3.5 : 3,
+        dotSize: isMobile ? 2 : 1,
+        velocityFilterWeight: 0.7,
       })
+      
+      // Add haptic feedback on touch devices
+      const handlePointerDown = () => {
+        setIsDrawing(true)
+      }
+      const handlePointerUp = () => {
+        setIsDrawing(false)
+        if (navigator.vibrate) navigator.vibrate(10)
+      }
+      
+      canvas.addEventListener('pointerdown', handlePointerDown)
+      canvas.addEventListener('pointerup', handlePointerUp)
+      
+      // Cleanup function
+      return () => {
+        if (sigPadRef.current) {
+          sigPadRef.current.clear()
+          sigPadRef.current = null
+        }
+        canvas.removeEventListener('pointerdown', handlePointerDown)
+        canvas.removeEventListener('pointerup', handlePointerUp)
+      }
     }
-    return () => { sigPadRef.current = null }
+    
+    // Cleanup when switching away from touch mode
+    return () => {
+      if (sigPadRef.current) {
+        sigPadRef.current.clear()
+        sigPadRef.current = null
+      }
+    }
   }, [captureMode, currentIdx, phase])
+
+  // Responsive canvas sizing
+  useEffect(() => {
+    const updateCanvasSize = () => {
+      const width = window.innerWidth
+      const isMobile = width < 640
+      const isTablet = width >= 640 && width < 1024
+      
+      if (isMobile) {
+        setCanvasSize({ width: Math.min(width - 48, 400), height: 180 })
+      } else if (isTablet) {
+        setCanvasSize({ width: Math.min(width - 96, 560), height: 200 })
+      } else {
+        setCanvasSize({ width: 560, height: 200 })
+      }
+      
+      setIsLandscape(width > window.innerHeight)
+    }
+    
+    updateCanvasSize()
+    window.addEventListener('resize', updateCanvasSize)
+    return () => window.removeEventListener('resize', updateCanvasSize)
+  }, [])
+
+  // Session persistence - restore on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(`signature-session-${agreementId}`)
+    if (saved) {
+      try {
+        const session = JSON.parse(saved)
+        if (Date.now() - session.timestamp < 24 * 60 * 60 * 1000) {
+          setSignatures(session.signatures || {})
+          setWitnessData(session.witnessData || {})
+          setCurrentIdx(session.currentIdx || 0)
+          setPhase(session.phase || 'signatory')
+        }
+      } catch {
+        localStorage.removeItem(`signature-session-${agreementId}`)
+      }
+    }
+  }, [agreementId])
+
+  // Session persistence - save on beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (Object.keys(signatures).length > 0) {
+        localStorage.setItem(`signature-session-${agreementId}`, JSON.stringify({
+          signatures,
+          witnessData,
+          currentIdx,
+          phase,
+          timestamp: Date.now(),
+        }))
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [signatures, witnessData, currentIdx, phase, agreementId])
 
   function clearPad() {
     sigPadRef.current?.clear()
@@ -222,38 +330,68 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
 
   async function finalise() {
     setSaving(true)
+    
+    try {
+      // Save session before submission
+      localStorage.setItem(`signature-session-${agreementId}`, JSON.stringify({
+        signatures,
+        witnessData,
+        currentIdx,
+        phase,
+        timestamp: Date.now(),
+      }))
 
-    for (let i = 0; i < signatories.length; i++) {
-      const signatory = signatories[i]
-      const witness = signatory.witnessEnabled ? witnessData[i] : null
+      // Collect all signature inserts
+      const signatureInserts = signatories.map((signatory, i) => {
+        const witness = signatory.witnessEnabled ? witnessData[i] : null
+        return (supabase.from('agreement_signatures') as any).insert({
+          agreement_id: agreementId,
+          signatory_type: signatory.type,
+          signatory_id: signatory.type === 'tenant' ? signatory.id : null,
+          signatory_name: signatory.name,
+          signature_image_base64: signatures[i],
+          capture_method: captureMode === 'topaz' ? 'topaz' : 'touch',
+          signed_by_user_id: signatory.type === 'agent' ? currentUser?.id : null,
+          signed_at: new Date().toISOString(),
+          witness_name: witness?.name || null,
+          witness_address: witness?.address || null,
+          witness_occupation: witness?.occupation || null,
+          witness_signature_base64: witness?.signature || null,
+        })
+      })
 
-      await supabase.from('agreement_signatures').insert({
-        agreement_id: agreementId,
-        signatory_type: signatory.type,
-        signatory_id: signatory.type === 'tenant' ? signatory.id : null,
-        signatory_name: signatory.name,
-        signature_image_base64: signatures[i],
-        capture_method: captureMode === 'topaz' ? 'topaz' : 'touch',
-        signed_by_user_id: signatory.type === 'agent' ? currentUser?.id : null,
+      // Execute all inserts in parallel
+      const results = await Promise.all(signatureInserts) as any[]
+      const errors = results.filter((r: any) => r.error)
+      
+      if (errors.length > 0) {
+        throw new Error(`Failed to save ${errors.length} signature(s): ${errors[0].error.message}`)
+      }
+
+      // Update agreement status to signed
+      const { error: updateError } = await (supabase.from('generated_agreements') as any).update({
+        status: 'signed',
         signed_at: new Date().toISOString(),
-        witness_name: witness?.name || null,
-        witness_address: witness?.address || null,
-        witness_occupation: witness?.occupation || null,
-        witness_signature_base64: witness?.signature || null,
-      } as any)
+      }).eq('id', agreementId)
+
+      if (updateError) {
+        throw new Error(`Failed to update agreement status: ${updateError.message}`)
+      }
+
+      // Embed signatures into agreement HTML
+      await embedSignaturesIntoAgreement(agreementId)
+      
+      // Clear session on successful completion
+      localStorage.removeItem(`signature-session-${agreementId}`)
+      
+      success('Signatures saved', 'Agreement has been signed successfully')
+      onCompleted()
+    } catch (err) {
+      console.error('Signature finalization failed:', err)
+      showError('Signature Failed', err instanceof Error ? err.message : 'Failed to save signatures. Please try again.')
+    } finally {
+      setSaving(false)
     }
-
-    // Update agreement status to signed
-    await (supabase.from('generated_agreements') as any).update({
-      status: 'signed',
-      signed_at: new Date().toISOString(),
-    }).eq('id', agreementId)
-
-    // Embed signatures into agreement HTML
-    await embedSignaturesIntoAgreement(agreementId)
-
-    setSaving(false)
-    onCompleted()
   }
 
   // Determine if the current step can proceed
@@ -267,16 +405,48 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
   const current = signatories[currentIdx]
   const totalSteps = signatories.reduce((acc, s) => acc + (s.witnessEnabled ? 2 : 1), 0)
   const completedSteps = signatories.slice(0, currentIdx).reduce((acc, s) => acc + (s.witnessEnabled ? 2 : 1), 0) + (phase === 'witness' ? 1 : (signatures[currentIdx] ? 1 : 0))
+  
+  // Swipe navigation for signatories (disabled while drawing)
+  const { handleTouchStart, handleTouchMove, handleTouchEnd } = useSwipe({
+    onSwipeLeft: () => {
+      if (!isDrawing && currentIdx < signatories.length - 1) {
+        advanceToNext()
+      }
+    },
+    onSwipeRight: () => {
+      if (!isDrawing && currentIdx > 0) {
+        setCurrentIdx((i) => i - 1)
+        setPhase('signatory')
+        clearPad()
+      }
+    },
+    threshold: 60,
+  })
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent onClose={onClose} className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Collect Signatures — {signatories.length} signatories</DialogTitle>
+      <DialogContent onClose={onClose} className="max-w-full sm:max-w-2xl mx-0 sm:mx-auto max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-3 border-b">
+          <DialogTitle className="text-lg sm:text-xl">Sign Tenancy Agreement</DialogTitle>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            {signatories.length} signature{(signatories.length > 1 ? 's' : '')} required
+          </p>
         </DialogHeader>
-        <div className="p-6 space-y-6">
+        <div 
+          className="p-4 sm:p-6 space-y-4 sm:space-y-6"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {/* Progress stepper */}
-          <div className="flex items-center gap-1 overflow-x-auto">
+          {/* Mobile view (<640px) */}
+          <div className="sm:hidden flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg mb-4">
+            <span className="text-sm font-medium">Signer {currentIdx + 1} of {signatories.length}</span>
+            <Badge variant="outline" className="text-xs">{current?.type === 'agent' ? 'Agent' : current?.name}</Badge>
+          </div>
+          
+          {/* Desktop view (≥640px) - horizontal stepper */}
+          <div className="hidden sm:flex items-center gap-1 overflow-x-auto">
             {signatories.map((s, i) => (
               <div key={i} className="flex items-center">
                 <div className="flex flex-col items-start gap-0.5">
@@ -314,39 +484,47 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
               {/* Signatory phase */}
               {phase === 'signatory' && (
                 <>
-                  <div className={`rounded-lg border p-3 text-sm ${current.type === 'agent' ? 'bg-purple-50 border-purple-200 text-purple-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+                  <div className={`rounded-lg border p-3 sm:p-4 text-sm ${current.type === 'agent' ? 'bg-purple-50 border-purple-200 text-purple-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
                     <strong>{current.name}</strong>
                     {current.type === 'tenant' ? ' (Tenant)' : ' (Agent — signing on behalf of the letting agency)'}
                     {' '}— please sign below
                   </div>
 
-                  {/* Witness toggle */}
-                  <div className="flex items-center gap-2 text-xs">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={current.witnessEnabled}
-                        onChange={(e) => toggleWitness(currentIdx, e.target.checked)}
-                        disabled={!!signatures[currentIdx]}
-                        className="rounded border-gray-300"
-                      />
-                      <span className="text-gray-700 font-medium">Witness required for this signature</span>
-                    </label>
-                  </div>
+                  {/* Witness toggle - touch-friendly */}
+                  <label className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 active:bg-gray-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={current.witnessEnabled}
+                      onChange={(e) => toggleWitness(currentIdx, e.target.checked)}
+                      disabled={!!signatures[currentIdx]}
+                      className="w-5 h-5 rounded border-gray-300"
+                    />
+                    <span className="text-sm text-gray-700 font-medium">Witness required for this signature</span>
+                  </label>
 
-                  {/* Capture mode toggle */}
+                  {/* Capture mode toggle - touch-friendly grid */}
                   {topazAvailable && (
-                    <div className="flex gap-2 text-xs">
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setCaptureMode('topaz')}
-                        className={`px-3 py-1.5 rounded border font-medium ${captureMode === 'topaz' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                        className={`h-12 rounded-lg border-2 font-medium text-sm flex items-center justify-center gap-2 ${
+                          captureMode === 'topaz' 
+                            ? 'bg-purple-600 text-white border-purple-600' 
+                            : 'border-gray-300 text-gray-600 active:bg-gray-50'
+                        }`}
                       >
+                        <PenLine className="h-4 w-4" />
                         Topaz Pad
                       </button>
                       <button
                         onClick={() => setCaptureMode('touch')}
-                        className={`px-3 py-1.5 rounded border font-medium ${captureMode === 'touch' ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                        className={`h-12 rounded-lg border-2 font-medium text-sm flex items-center justify-center gap-2 ${
+                          captureMode === 'touch' 
+                            ? 'bg-gray-900 text-white border-gray-900' 
+                            : 'border-gray-300 text-gray-600 active:bg-gray-50'
+                        }`}
                       >
+                        <Hand className="h-4 w-4" />
                         Touch / Mouse
                       </button>
                     </div>
@@ -354,14 +532,35 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
 
                   {captureMode === 'touch' && (
                     <div className="space-y-2">
-                      <canvas
-                        ref={canvasRef}
-                        width={560}
-                        height={200}
-                        className="border-2 border-dashed border-gray-300 rounded-lg w-full touch-none bg-white"
-                        style={{ touchAction: 'none' }}
-                      />
-                      <Button variant="outline" size="sm" onClick={clearPad}>Clear</Button>
+                      <div ref={canvasContainerRef} className="relative">
+                        <canvas
+                          ref={canvasRef}
+                          width={canvasSize.width}
+                          height={canvasSize.height}
+                          className="border-2 border-dashed border-gray-300 rounded-lg w-full touch-none bg-white"
+                          style={{ touchAction: 'none' }}
+                          aria-label="Signature pad - sign here with your finger or stylus"
+                        />
+                        {!sigPadRef.current?.isEmpty() && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Clear signature?')) {
+                                clearPad()
+                              }
+                            }}
+                            className="absolute top-2 right-2 h-10 px-3 bg-white border border-gray-300 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-gray-50 active:bg-gray-100 shadow-sm"
+                            aria-label="Clear signature"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Clear
+                          </button>
+                        )}
+                        {sigPadRef.current?.isEmpty() && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <p className="text-gray-400 text-sm">Sign here with your finger or stylus</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -373,11 +572,15 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
                     </div>
                   )}
 
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-gray-500">
+                  <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+                    <p className="text-sm text-gray-500">
                       Step {completedSteps + 1} of {totalSteps}
                     </p>
-                    <Button onClick={handleCapture} disabled={saving}>
+                    <Button 
+                      onClick={handleCapture} 
+                      disabled={saving}
+                      className="h-12 px-6 text-base"
+                    >
                       {saving ? 'Saving…' : current.witnessEnabled ? 'Next: Witness' : (currentIdx < signatories.length - 1 ? 'Next Signatory' : 'Complete & Save')}
                     </Button>
                   </div>
@@ -419,18 +622,32 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs">Witness Signature *</Label>
+                    <Label className="text-sm">Witness Signature *</Label>
                     {captureMode === 'touch' && (
-                      <>
+                      <div ref={canvasContainerRef} className="relative">
                         <canvas
                           ref={canvasRef}
-                          width={560}
-                          height={150}
+                          width={canvasSize.width}
+                          height={Math.round(canvasSize.height * 0.75)}
                           className="border-2 border-dashed border-amber-300 rounded-lg w-full touch-none bg-white"
                           style={{ touchAction: 'none' }}
+                          aria-label="Witness signature pad"
                         />
-                        <Button variant="outline" size="sm" onClick={clearPad}>Clear</Button>
-                      </>
+                        {sigPadRef.current && !sigPadRef.current.isEmpty() && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Clear witness signature?')) {
+                                clearPad()
+                              }
+                            }}
+                            className="absolute top-2 right-2 h-10 px-3 bg-white border border-gray-300 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-gray-50 active:bg-gray-100 shadow-sm"
+                            aria-label="Clear witness signature"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Clear
+                          </button>
+                        )}
+                      </div>
                     )}
                     {captureMode === 'topaz' && (
                       <div className="rounded-lg border-2 border-dashed border-amber-300 bg-amber-50 p-6 text-center space-y-2">
@@ -441,11 +658,15 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
                     )}
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-gray-500">
+                  <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+                    <p className="text-sm text-gray-500">
                       Step {completedSteps + 1} of {totalSteps}
                     </p>
-                    <Button onClick={handleCapture} disabled={saving || !canProceed}>
+                    <Button 
+                      onClick={handleCapture} 
+                      disabled={saving || !canProceed}
+                      className="h-12 px-6 text-base"
+                    >
                       {saving ? 'Saving…' : (currentIdx < signatories.length - 1 ? 'Next Signatory' : 'Complete & Save')}
                     </Button>
                   </div>

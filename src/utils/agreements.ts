@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { syncAttachmentsToAgreement } from '@/utils/agreement-attachments'
+import { loadAgreementSettings, generateSettingsCSS } from '@/utils/agreement-settings'
 
 // Default merge field replacements
 function applyMergeFields(html: string, context: Record<string, string>): string {
@@ -17,7 +18,7 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
     .from('tenancies')
     .select(`
       id, reference_number, start_date, end_date, rent_amount, deposit_amount, deposit_scheme,
-      property_id,
+      property_id, council_id,
       properties(id, address, postcode, type, bedrooms, bathrooms, epc_rating),
       landlords(id, full_name, email, phone, address_line1, address_line2, city, postcode, bank_name, bank_sort_code, bank_account_number, bank_account_name),
       tenancy_tenants(tenant_id, is_lead, tenants(id, full_name, email, phone, dob, ni_number))
@@ -51,6 +52,17 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
   const company = (companySettings as any) ?? {}
   const property = tenancyAny.properties ?? {}
   const landlord = tenancyAny.landlords ?? {}
+
+  // Fetch council data if council_id is set
+  let council: any = {}
+  if (tenancyAny.council_id) {
+    const { data: councilData } = await supabase
+      .from('local_authorities')
+      .select('*')
+      .eq('id', tenancyAny.council_id)
+      .single()
+    council = councilData ?? {}
+  }
 
   const tenants = (tenancyAny.tenancy_tenants ?? [])
     .map((tt: any) => tt.tenants)
@@ -86,6 +98,12 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
     '{{property_address}}': property.address ?? 'N/A',
     '{{property_postcode}}': property.postcode ?? 'N/A',
     '{{property_type}}': property.type ?? 'N/A',
+    '{{property_description}}': property.description ?? '',
+    '{{property_bedrooms}}': property.bedrooms ? property.bedrooms.toString() : '',
+    '{{property_bathrooms}}': property.bathrooms ? property.bathrooms.toString() : '',
+    '{{property_epc_rating}}': property.epc_rating ?? '',
+    '{{property_utility_note}}': property.utility_note ?? '',
+    '{{property_inventory_note}}': property.inventory_note ?? '',
     '{{landlord_name}}': landlord.full_name ?? 'N/A',
     '{{landlord_address}}': landlordAddress || 'N/A',
     '{{landlord_email}}': landlord.email ?? 'N/A',
@@ -105,6 +123,14 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
     '{{tenant_email}}': leadTenantAny?.email ?? '',
     '{{tenant_id_number}}': leadTenantAny?.ni_number ?? '',
     '{{lead_tenant_name}}': leadTenantAny?.full_name ?? tenantNames.split(',')[0] ?? 'N/A',
+
+    // Tenancy description
+    '{{tenancy_description}}': tenancyAny.description ?? '',
+
+    // All tenant members (comma-separated list)
+    '{{all_tenant_names}}': tenantNames,
+    '{{all_tenant_emails}}': (tenants as any[]).map((t: any) => t.email).filter(Boolean).join(', '),
+    '{{all_tenant_phones}}': (tenants as any[]).map((t: any) => t.phone).filter(Boolean).join(', '),
 
     // Rent details
     '{{rent_frequency}}': 'month',
@@ -155,6 +181,15 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
     '{{hmo_max_individuals}}': '',
     '{{hmo_max_families}}': '',
 
+    // Council details
+    '{{council_name}}': council.name ?? '',
+    '{{council_address}}': [council.address_line1, council.address_line2, council.city, council.postcode].filter(Boolean).join(', ') ?? '',
+    '{{council_phone}}': council.phone ?? '',
+    '{{council_email}}': council.email ?? '',
+    '{{council_website}}': council.website ?? '',
+    '{{council_licence_type}}': council.licence_type ?? '',
+    '{{council_reference}}': '',
+
     // Other
     '{{garden_maintenance}}': '',
 
@@ -168,6 +203,28 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
     '{{family_member_3_name}}': '',
     '{{family_member_3_dob}}': '',
     '{{family_member_3_relation}}': '',
+
+    // Individual tenant members (up to 5)
+    '{{tenant_1_name}}': (tenants as any[])[0]?.full_name ?? '',
+    '{{tenant_1_email}}': (tenants as any[])[0]?.email ?? '',
+    '{{tenant_1_phone}}': (tenants as any[])[0]?.phone ?? '',
+    '{{tenant_1_dob}}': (tenants as any[])[0]?.dob ? new Date((tenants as any[])[0].dob).toLocaleDateString('en-GB') : '',
+    '{{tenant_2_name}}': (tenants as any[])[1]?.full_name ?? '',
+    '{{tenant_2_email}}': (tenants as any[])[1]?.email ?? '',
+    '{{tenant_2_phone}}': (tenants as any[])[1]?.phone ?? '',
+    '{{tenant_2_dob}}': (tenants as any[])[1]?.dob ? new Date((tenants as any[])[1].dob).toLocaleDateString('en-GB') : '',
+    '{{tenant_3_name}}': (tenants as any[])[2]?.full_name ?? '',
+    '{{tenant_3_email}}': (tenants as any[])[2]?.email ?? '',
+    '{{tenant_3_phone}}': (tenants as any[])[2]?.phone ?? '',
+    '{{tenant_3_dob}}': (tenants as any[])[2]?.dob ? new Date((tenants as any[])[2].dob).toLocaleDateString('en-GB') : '',
+    '{{tenant_4_name}}': (tenants as any[])[3]?.full_name ?? '',
+    '{{tenant_4_email}}': (tenants as any[])[3]?.email ?? '',
+    '{{tenant_4_phone}}': (tenants as any[])[3]?.phone ?? '',
+    '{{tenant_4_dob}}': (tenants as any[])[3]?.dob ? new Date((tenants as any[])[3].dob).toLocaleDateString('en-GB') : '',
+    '{{tenant_5_name}}': (tenants as any[])[4]?.full_name ?? '',
+    '{{tenant_5_email}}': (tenants as any[])[4]?.email ?? '',
+    '{{tenant_5_phone}}': (tenants as any[])[4]?.phone ?? '',
+    '{{tenant_5_dob}}': (tenants as any[])[4]?.dob ? new Date((tenants as any[])[4].dob).toLocaleDateString('en-GB') : '',
   }
 
   // Build logo HTML if company has a logo
@@ -177,13 +234,35 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
 
   const bodyHtml = logoHtml + applyMergeFields((defaultTemplate as any).body_html, mergeContext)
 
+  // Apply agreement layout settings from database
+  const layoutSettings = await loadAgreementSettings()
+  const settingsCSS = generateSettingsCSS(layoutSettings)
+  const finalHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assured Periodic Tenancy Agreement</title>
+  <style>${settingsCSS}</style>
+</head>
+<body>
+  <div class="agreement-body">
+    <div class="agreement-content">
+      ${bodyHtml}
+    </div>
+  </div>
+</body>
+</html>
+  `
+
   // Insert generated agreement
   const { data: agreement, error } = await (supabase.from('generated_agreements') as any)
     .insert({
       tenancy_id: tenancyId,
       template_id: null,
-      merged_content_json: { body: bodyHtml, context: mergeContext },
-      merged_html: bodyHtml,
+      merged_content_json: { body: finalHtml, context: mergeContext },
+      merged_html: finalHtml,
       status: 'pending_signatures',
       council_submission_status: 'not_submitted',
     })

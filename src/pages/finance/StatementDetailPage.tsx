@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { ChevronLeft, Printer, Loader2 } from 'lucide-react'
+import { ChevronLeft, Printer, Loader2, Eye } from 'lucide-react'
 import { generateStatementHTML } from '@/utils/statement-html'
 import { useToast } from '@/contexts/ToastContext'
 
@@ -90,25 +90,31 @@ export default function StatementDetailPage() {
 
   const isLoading = loadingStatement || loadingTenancies || loadingTransactions || loadingExpenses
 
-  // Print handler
+  // Print handler with improved error handling
   const handlePrint = async () => {
     if (!statement) return
 
     try {
       // Get company logo URL
       let logoUrl = null
-      const { data: settings } = await supabase
+      const { data: settings, error: settingsError } = await supabase
         .from('company_settings')
         .select('company_name, logo_storage_path')
         .single()
 
+      if (settingsError) {
+        console.warn('Could not fetch company settings:', settingsError)
+      }
+
       const settingsData = settings as any
       if (settingsData?.logo_storage_path) {
-        const { data: signedUrlData } = await supabase.storage
+        const { data: signedUrlData, error: urlError } = await supabase.storage
           .from('company-assets')
           .createSignedUrl(settingsData.logo_storage_path, 3600)
         
-        if (signedUrlData?.signedUrl) {
+        if (urlError) {
+          console.warn('Could not generate signed URL for logo:', urlError)
+        } else if (signedUrlData?.signedUrl) {
           logoUrl = signedUrlData.signedUrl
         }
       }
@@ -122,22 +128,77 @@ export default function StatementDetailPage() {
         companyName: settingsData?.company_name || 'Property Management'
       })
 
+      // Open print window
       const printWindow = window.open('', '_blank')
       if (!printWindow) {
         showError('Print blocked', 'Please allow popups to print statements')
         return
       }
 
+      // Write HTML content
       printWindow.document.write(html)
       printWindow.document.close()
       
-      // Wait for content to load before printing
-      setTimeout(() => {
-        printWindow.print()
-      }, 250)
+      // Wait for images and content to fully load before printing
+      printWindow.onload = () => {
+        setTimeout(() => {
+          try {
+            printWindow.print()
+          } catch (printErr) {
+            console.error('Print dialog failed:', printErr)
+            showError('Print failed', 'Could not open print dialog')
+          }
+        }, 500)
+      }
     } catch (err) {
-      console.error('Print failed:', err)
-      showError('Print failed', 'Could not generate statement for printing')
+      console.error('Print preparation failed:', err)
+      showError('Print failed', err instanceof Error ? err.message : 'Could not generate statement for printing')
+    }
+  }
+
+  // View handler - opens in new tab for on-screen viewing
+  const handleView = async () => {
+    if (!statement) return
+
+    try {
+      // Get company logo URL
+      let logoUrl = null
+      const { data: settings, error: settingsError } = await supabase
+        .from('company_settings')
+        .select('company_name, logo_storage_path')
+        .single()
+
+      if (!settingsError && (settings as any)?.logo_storage_path) {
+        const { data: signedUrlData } = await supabase.storage
+          .from('company-assets')
+          .createSignedUrl((settings as any).logo_storage_path, 3600)
+        
+        if (signedUrlData?.signedUrl) {
+          logoUrl = signedUrlData.signedUrl
+        }
+      }
+
+      const html = generateStatementHTML({
+        statement,
+        tenancies: tenancies ?? [],
+        rentTransactions: rentTransactions ?? [],
+        expenses: expenses ?? [],
+        companyLogo: logoUrl,
+        companyName: (settings as any)?.company_name || 'Property Management'
+      })
+
+      // Open in new tab for viewing
+      const viewWindow = window.open('', '_blank')
+      if (!viewWindow) {
+        showError('View blocked', 'Please allow popups to view statements')
+        return
+      }
+
+      viewWindow.document.write(html)
+      viewWindow.document.close()
+    } catch (err) {
+      console.error('View preparation failed:', err)
+      showError('View failed', err instanceof Error ? err.message : 'Could not generate statement for viewing')
     }
   }
 
@@ -209,10 +270,16 @@ export default function StatementDetailPage() {
             {landlord.full_name} • {formatDate(statement.period_start)} – {formatDate(statement.period_end)}
           </p>
         </div>
-        <Button onClick={handlePrint}>
-          <Printer className="h-4 w-4 mr-2" />
-          Print / Save PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleView}>
+            <Eye className="h-4 w-4 mr-2" />
+            View
+          </Button>
+          <Button onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print / Save PDF
+          </Button>
+        </div>
       </div>
 
       {/* Landlord Info Card */}

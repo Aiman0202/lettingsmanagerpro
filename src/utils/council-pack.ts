@@ -122,6 +122,30 @@ export function generateCouncilPackHTML(data: CouncilPackData): string {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .page-break { page-break-before: always; }
       .avoid-break { page-break-inside: avoid; }
+      .close-button { display: none !important; }
+    }
+    
+    .close-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: all 0.2s;
+    }
+    
+    .close-button:hover {
+      background: #dc2626;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
     }
     .cover-page { text-align: center; padding: 40px 20px; }
     .cover-page h1 { font-size: 20pt; margin-bottom: 8px; }
@@ -202,10 +226,15 @@ export function generateCouncilPackHTML(data: CouncilPackData): string {
 </head>
 <body>
 
+  <!-- Close Button (Screen Only) -->
+  <button class="close-button" onclick="window.close()" title="Close and return to app">
+    ✕ Close Window
+  </button>
+
   <!-- COVER PAGE -->
   <div class="cover-page">
     <h1>CITY COUNCIL SUBMISSION PACK</h1>
-    <h2>Assured Shorthold Tenancy — Supporting Documents</h2>
+    <h2>Assured Periodic Tenancy — Supporting Documents</h2>
 
     <div class="council-address" style="text-align: left; max-width: 400px; margin: 20px auto;">
       <p><strong>To:</strong> ${escapeHtml(data.councilName)}</p>
@@ -228,7 +257,7 @@ export function generateCouncilPackHTML(data: CouncilPackData): string {
     <div class="pack-stamp" style="max-width: 500px; margin: 20px auto; text-align: left;">
       <p><strong>Pack Contents:</strong></p>
       <ol style="margin: 0; padding-left: 20px; font-size: 9pt;">
-        <li>Signed Assured Shorthold Tenancy Agreement</li>
+        <li>Signed Assured Periodic Tenancy Agreement</li>
         <li>Appendix A — Property Compliance Certificates</li>
         <li>Appendix B — Tenant Identification Documents</li>
         <li>Appendix C — Tenant References</li>

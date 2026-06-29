@@ -162,7 +162,7 @@ export interface Database {
       }
       tenancies: {
         Row: {
-          id: string; property_id: string; landlord_id: string
+          id: string; property_id: string; landlord_id: string; council_id: string | null
           start_date: string; end_date: string
           rent_amount: number; deposit_amount: number
           deposit_scheme: string | null
@@ -171,13 +171,14 @@ export interface Database {
           created_at: string; updated_at: string
         }
         Insert: {
-          id?: string; property_id: string; landlord_id: string
+          id?: string; property_id: string; landlord_id: string; council_id?: string | null
           start_date: string; end_date: string
           rent_amount: number; deposit_amount?: number
           deposit_scheme?: string | null; status?: 'active' | 'expired' | 'ending_soon' | 'draft' | 'arrears' | 'payment_plan' | 'legal_proceedings' | 'terminated'
           agreement_template_id?: string | null
         }
         Update: {
+          property_id?: string; landlord_id?: string; council_id?: string | null
           start_date?: string; end_date?: string; rent_amount?: number; deposit_amount?: number
           deposit_scheme?: string | null; status?: string; updated_at?: string
         }
@@ -319,6 +320,11 @@ export interface Database {
           city: string | null; postcode: string | null
           company_description: string | null
           default_fee_percentage: number; updated_at: string
+          emergency_phone: string | null
+          insurance_provider: string | null; insurance_policy_number: string | null
+          insurance_expiry_date: string | null
+          deposit_scheme_name: string | null; deposit_scheme_address: string | null
+          late_fee_policy: string | null; payment_terms: string | null
         }
         Insert: {
           id?: string; company_name: string; logo_storage_path?: string | null
@@ -328,6 +334,11 @@ export interface Database {
           address_line1?: string | null; address_line2?: string | null
           city?: string | null; postcode?: string | null
           company_description?: string | null; default_fee_percentage?: number
+          emergency_phone?: string | null
+          insurance_provider?: string | null; insurance_policy_number?: string | null
+          insurance_expiry_date?: string | null
+          deposit_scheme_name?: string | null; deposit_scheme_address?: string | null
+          late_fee_policy?: string | null; payment_terms?: string | null
         }
         Update: {
           company_name?: string; logo_storage_path?: string | null
@@ -337,6 +348,11 @@ export interface Database {
           address_line1?: string | null; address_line2?: string | null
           city?: string | null; postcode?: string | null
           company_description?: string | null; default_fee_percentage?: number; updated_at?: string
+          emergency_phone?: string | null
+          insurance_provider?: string | null; insurance_policy_number?: string | null
+          insurance_expiry_date?: string | null
+          deposit_scheme_name?: string | null; deposit_scheme_address?: string | null
+          late_fee_policy?: string | null; payment_terms?: string | null
         }
       }
       agreement_attachments: {
@@ -608,6 +624,51 @@ export interface Database {
           alarm_code?: string | null; parking_permits_handed?: boolean
           appliances_tested?: boolean; cleaning_completed?: boolean
           garden_condition?: string | null; notes?: string | null
+        }
+      }
+      local_authorities: {
+        Row: {
+          id: string; name: string
+          address_line1: string | null; address_line2: string | null
+          city: string | null; postcode: string | null
+          phone: string | null; email: string | null; website: string | null
+          contact_person: string | null
+          licensing_required: boolean; licence_type: string | null
+          notes: string | null
+          created_at: string; updated_at: string
+        }
+        Insert: {
+          id?: string; name: string
+          address_line1?: string | null; address_line2?: string | null
+          city?: string | null; postcode?: string | null
+          phone?: string | null; email?: string | null; website?: string | null
+          contact_person?: string | null
+          licensing_required?: boolean; licence_type?: string | null
+          notes?: string | null
+        }
+        Update: {
+          name?: string; address_line1?: string | null; address_line2?: string | null
+          city?: string | null; postcode?: string | null
+          phone?: string | null; email?: string | null; website?: string | null
+          contact_person?: string | null
+          licensing_required?: boolean; licence_type?: string | null
+          notes?: string | null; updated_at?: string
+        }
+      }
+      council_required_documents: {
+        Row: {
+          id: string; council_id: string
+          document_type: string; is_required: boolean
+          description: string | null; sort_order: number
+        }
+        Insert: {
+          id?: string; council_id: string
+          document_type: string; is_required?: boolean
+          description?: string | null; sort_order?: number
+        }
+        Update: {
+          document_type?: string; is_required?: boolean
+          description?: string | null; sort_order?: number
         }
       }
     }

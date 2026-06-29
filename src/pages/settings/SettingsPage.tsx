@@ -8,20 +8,27 @@ import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Building2, Users2, ShieldCheck, ClipboardList, Upload, Image } from 'lucide-react'
+import { Building2, Users2, ShieldCheck, ClipboardList, Upload, Image, FileText, FileEdit, Landmark } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import AgreementLayoutSettings from '@/components/AgreementLayoutSettings'
+import TemplateEditorDialog from '@/features/agreements/editor/components/TemplateEditorDialog'
+import CouncilManagement from '@/components/CouncilManagement'
 
-type SettingsTab = 'company' | 'users' | 'roles' | 'audit'
+type SettingsTab = 'company' | 'users' | 'roles' | 'audit' | 'agreement-layout' | 'agreement-template' | 'councils'
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<SettingsTab>('company')
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false)
 
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
     { id: 'company', label: 'Company', icon: Building2 },
     { id: 'users', label: 'Users', icon: Users2 },
     { id: 'roles', label: 'Roles & Permissions', icon: ShieldCheck },
+    { id: 'councils', label: 'Councils', icon: Landmark },
     { id: 'audit', label: 'Audit Log', icon: ClipboardList },
+    { id: 'agreement-layout', label: 'Agreement Layout', icon: FileText },
+    { id: 'agreement-template', label: 'Agreement Template', icon: FileEdit },
   ]
 
   return (
@@ -49,7 +56,28 @@ export default function SettingsPage() {
       {tab === 'company' && <CompanySettings />}
       {tab === 'users' && <UsersSettings />}
       {tab === 'roles' && <RolesSettings />}
+      {tab === 'councils' && <CouncilManagement />}
       {tab === 'audit' && <AuditLog />}
+      {tab === 'agreement-layout' && <AgreementLayoutSettings />}
+      {tab === 'agreement-template' && (
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold">Agreement Template Editor</h3>
+            <p className="text-sm text-gray-500 mt-1">Edit the default AST template used when generating new tenancy agreements</p>
+          </div>
+          <Button onClick={() => setShowTemplateEditor(true)} className="gap-2">
+            <FileEdit className="h-4 w-4" />
+            Open Template Editor
+          </Button>
+        </div>
+      )}
+
+      {showTemplateEditor && (
+        <TemplateEditorDialog
+          open={showTemplateEditor}
+          onClose={() => setShowTemplateEditor(false)}
+        />
+      )}
     </div>
   )
 }
@@ -61,6 +89,11 @@ function CompanySettings() {
     default_fee_percentage: '10', company_registration_number: '', website: '',
     address_line1: '', address_line2: '', city: '', postcode: '', company_description: '',
     logo_storage_path: '',
+    // New fields
+    emergency_phone: '',
+    insurance_provider: '', insurance_policy_number: '', insurance_expiry_date: '',
+    deposit_scheme_name: '', deposit_scheme_address: '',
+    late_fee_policy: '', payment_terms: '',
   })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -72,25 +105,34 @@ function CompanySettings() {
     queryFn: async () => {
       const { data } = await supabase.from('company_settings').select('*').single()
       if (data) {
+        const dataAny = data as any
         setForm({
-          company_name: data.company_name ?? '',
-          address: data.address ?? '',
-          email: data.email ?? '',
-          phone: data.phone ?? '',
-          vat_number: data.vat_number ?? '',
-          bank_details: data.bank_details ?? '',
-          default_fee_percentage: String(data.default_fee_percentage ?? 10),
-          company_registration_number: data.company_registration_number ?? '',
-          website: data.website ?? '',
-          address_line1: data.address_line1 ?? '',
-          address_line2: data.address_line2 ?? '',
-          city: data.city ?? '',
-          postcode: data.postcode ?? '',
-          company_description: data.company_description ?? '',
-          logo_storage_path: data.logo_storage_path ?? '',
+          company_name: dataAny.company_name ?? '',
+          address: dataAny.address ?? '',
+          email: dataAny.email ?? '',
+          phone: dataAny.phone ?? '',
+          vat_number: dataAny.vat_number ?? '',
+          bank_details: dataAny.bank_details ?? '',
+          default_fee_percentage: String(dataAny.default_fee_percentage ?? 10),
+          company_registration_number: dataAny.company_registration_number ?? '',
+          website: dataAny.website ?? '',
+          address_line1: dataAny.address_line1 ?? '',
+          address_line2: dataAny.address_line2 ?? '',
+          city: dataAny.city ?? '',
+          postcode: dataAny.postcode ?? '',
+          company_description: dataAny.company_description ?? '',
+          logo_storage_path: dataAny.logo_storage_path ?? '',
+          emergency_phone: dataAny.emergency_phone ?? '',
+          insurance_provider: dataAny.insurance_provider ?? '',
+          insurance_policy_number: dataAny.insurance_policy_number ?? '',
+          insurance_expiry_date: dataAny.insurance_expiry_date ?? '',
+          deposit_scheme_name: dataAny.deposit_scheme_name ?? '',
+          deposit_scheme_address: dataAny.deposit_scheme_address ?? '',
+          late_fee_policy: dataAny.late_fee_policy ?? '',
+          payment_terms: dataAny.payment_terms ?? '',
         })
-        if (data.logo_storage_path) {
-          setLogoUrl(supabase.storage.from('company-assets').getPublicUrl(data.logo_storage_path).data.publicUrl)
+        if (dataAny.logo_storage_path) {
+          setLogoUrl(supabase.storage.from('company-assets').getPublicUrl(dataAny.logo_storage_path).data.publicUrl)
         }
       }
       return data
@@ -125,6 +167,15 @@ function CompanySettings() {
       postcode: form.postcode || null,
       company_description: form.company_description || null,
       logo_storage_path: logoPath || null,
+      // New fields
+      emergency_phone: form.emergency_phone || null,
+      insurance_provider: form.insurance_provider || null,
+      insurance_policy_number: form.insurance_policy_number || null,
+      insurance_expiry_date: form.insurance_expiry_date || null,
+      deposit_scheme_name: form.deposit_scheme_name || null,
+      deposit_scheme_address: form.deposit_scheme_address || null,
+      late_fee_policy: form.late_fee_policy || null,
+      payment_terms: form.payment_terms || null,
     }
     const { data: existing } = await supabase.from('company_settings').select('id').single()
     if (existing) {
@@ -230,6 +281,102 @@ function CompanySettings() {
               <div className="space-y-1.5">
                 <Label>Postcode</Label>
                 <Input value={form.postcode} onChange={(e) => setForm({ ...form, postcode: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          {/* Emergency Contact & Insurance */}
+          <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <Label className="text-base">Emergency Contact & Insurance</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Emergency Phone</Label>
+                <Input 
+                  value={form.emergency_phone} 
+                  onChange={(e) => setForm({ ...form, emergency_phone: e.target.value })} 
+                  placeholder="0800 123 4567"
+                />
+                <p className="text-xs text-gray-500">24/7 emergency contact for tenant issues</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Insurance Provider</Label>
+                <Input 
+                  value={form.insurance_provider} 
+                  onChange={(e) => setForm({ ...form, insurance_provider: e.target.value })} 
+                  placeholder="Zurich, Aviva, etc."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Policy Number</Label>
+                <Input 
+                  value={form.insurance_policy_number} 
+                  onChange={(e) => setForm({ ...form, insurance_policy_number: e.target.value })} 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Insurance Expiry Date</Label>
+                <Input 
+                  type="date"
+                  value={form.insurance_expiry_date} 
+                  onChange={(e) => setForm({ ...form, insurance_expiry_date: e.target.value })} 
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Deposit Protection Scheme */}
+          <div className="space-y-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <Label className="text-base">Deposit Protection Scheme</Label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Scheme Name</Label>
+                <select
+                  value={form.deposit_scheme_name}
+                  onChange={(e) => setForm({ ...form, deposit_scheme_name: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select scheme...</option>
+                  <option value="DPS">Deposit Protection Service (DPS)</option>
+                  <option value="TDS">Tenancy Deposit Scheme (TDS)</option>
+                  <option value="MyDeposits">MyDeposits</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Scheme Address</Label>
+                <Input 
+                  value={form.deposit_scheme_address} 
+                  onChange={(e) => setForm({ ...form, deposit_scheme_address: e.target.value })} 
+                  placeholder="Scheme address for agreements"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Terms & Policies */}
+          <div className="space-y-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <Label className="text-base">Payment Terms & Policies</Label>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Late Fee Policy</Label>
+                <textarea
+                  value={form.late_fee_policy}
+                  onChange={(e) => setForm({ ...form, late_fee_policy: e.target.value })}
+                  placeholder="e.g. Rent paid more than 14 days late will incur a fee of £X..."
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+                <p className="text-xs text-gray-500">Default text for late payment penalties in agreements</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Payment Terms</Label>
+                <textarea
+                  value={form.payment_terms}
+                  onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}
+                  placeholder="e.g. Rent is due on the 1st of each month by standing order..."
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+                <p className="text-xs text-gray-500">Standard payment terms for tenancy agreements</p>
               </div>
             </div>
           </div>
