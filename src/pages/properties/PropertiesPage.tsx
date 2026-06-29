@@ -406,7 +406,7 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
         inventory_note: existing.inventory_note ?? '',
       })
     }
-  })
+  }, [existing])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
