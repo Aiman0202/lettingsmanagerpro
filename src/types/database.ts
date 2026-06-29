@@ -46,29 +46,132 @@ export interface Database {
       }
       properties: {
         Row: {
-          id: string; address: string; postcode: string; type: string
+          id: string; reference_number: string; address: string; postcode: string; type: string
           bedrooms: number | null; bathrooms: number | null
-          status: 'available' | 'let' | 'maintenance' | 'inactive'
+          status: 'available' | 'let' | 'unavailable' | 'inactive'
           landlord_id: string | null; description: string | null
           epc_rating: string | null; created_at: string; updated_at: string
+          furnished_status: string | null
+          utility_note: string | null; inventory_note: string | null
+          // Category 2: Property Features
+          property_subtype: string | null; floor_number: number | null; total_floors: number | null; lift_access: boolean
+          has_garden: boolean; garden_type: string | null; has_balcony: boolean; has_terrace: boolean; has_patio: boolean
+          has_parking: boolean; parking_type: string | null; parking_spaces: number
+          heating_type: string | null; hot_water_type: string | null; has_double_glazing: boolean
+          reception_rooms: number; kitchen_type: string | null; appliances_included: Json
+          broadband_type: string | null; has_smart_home: boolean; smart_home_features: string | null
+          // Category 4: Location & Area
+          nearest_station: string | null; station_distance_minutes: number | null
+          nearby_schools: Json; nearby_amenities: Json
+          neighborhood_description: string | null; local_highlights: string | null; transport_links: string | null
+          // Category 5: Financial Details
+          monthly_rent: number | null; deposit_amount: number | null; council_tax_band: string | null
+          rent_includes: Json; minimum_term_months: number; available_from: string | null
+          // Category 6: Descriptions
+          short_description: string | null; full_description: string | null; key_features: Json
+          // Category 7: Media
+          floor_plan_url: string | null; virtual_tour_url: string | null
+          video_tour_url: string | null; tour_360_url: string | null
+          // Category 8: Compliance
+          fire_safety_compliant: boolean | null; legionella_assessed: boolean | null
+          legionella_assessment_date: string | null; hmo_license_required: boolean
+          hmo_license_number: string | null; hmo_license_expiry: string | null
+          // Category 9: Management
+          managed_by: string | null; management_type: string | null; management_fee_percentage: number | null
+          keys_held: boolean; keys_count: number; alarm_code: string | null
+          emergency_contact_name: string | null; emergency_contact_phone: string | null
+          // Category 10: Website Display
+          show_on_website: boolean; featured_property: boolean; custom_slug: string | null
+          seo_title: string | null; seo_meta_description: string | null; seo_keywords: Json
         }
         Insert: {
-          id?: string; address: string; postcode: string; type: string
+          id?: string; reference_number?: string; address: string; postcode: string; type: string
           bedrooms?: number | null; bathrooms?: number | null
-          status?: 'available' | 'let' | 'maintenance' | 'inactive'
+          status?: 'available' | 'let' | 'unavailable' | 'inactive'
           landlord_id?: string | null; description?: string | null; epc_rating?: string | null
+          furnished_status?: string | null
+          utility_note?: string | null; inventory_note?: string | null
+          property_subtype?: string | null; floor_number?: number | null; total_floors?: number | null; lift_access?: boolean
+          has_garden?: boolean; garden_type?: string | null; has_balcony?: boolean; has_terrace?: boolean; has_patio?: boolean
+          has_parking?: boolean; parking_type?: string | null; parking_spaces?: number
+          heating_type?: string | null; hot_water_type?: string | null; has_double_glazing?: boolean
+          reception_rooms?: number; kitchen_type?: string | null; appliances_included?: Json
+          broadband_type?: string | null; has_smart_home?: boolean; smart_home_features?: string | null
+          nearest_station?: string | null; station_distance_minutes?: number | null
+          nearby_schools?: Json; nearby_amenities?: Json
+          neighborhood_description?: string | null; local_highlights?: string | null; transport_links?: string | null
+          monthly_rent?: number | null; deposit_amount?: number | null; council_tax_band?: string | null
+          rent_includes?: Json; minimum_term_months?: number; available_from?: string | null
+          short_description?: string | null; full_description?: string | null; key_features?: Json
+          floor_plan_url?: string | null; virtual_tour_url?: string | null
+          video_tour_url?: string | null; tour_360_url?: string | null
+          fire_safety_compliant?: boolean | null; legionella_assessed?: boolean | null
+          legionella_assessment_date?: string | null; hmo_license_required?: boolean
+          hmo_license_number?: string | null; hmo_license_expiry?: string | null
+          managed_by?: string | null; management_type?: string | null; management_fee_percentage?: number | null
+          keys_held?: boolean; keys_count?: number; alarm_code?: string | null
+          emergency_contact_name?: string | null; emergency_contact_phone?: string | null
+          show_on_website?: boolean; featured_property?: boolean; custom_slug?: string | null
+          seo_title?: string | null; seo_meta_description?: string | null; seo_keywords?: Json
         }
         Update: {
           address?: string; postcode?: string; type?: string
           bedrooms?: number | null; bathrooms?: number | null
-          status?: 'available' | 'let' | 'maintenance' | 'inactive'
-          landlord_id?: string | null; description?: string | null; epc_rating?: string | null; updated_at?: string
+          status?: 'available' | 'let' | 'unavailable' | 'inactive'
+          landlord_id?: string | null; description?: string | null; epc_rating?: string | null
+          furnished_status?: string | null
+          utility_note?: string | null; inventory_note?: string | null
+          property_subtype?: string | null; floor_number?: number | null; total_floors?: number | null; lift_access?: boolean
+          has_garden?: boolean; garden_type?: string | null; has_balcony?: boolean; has_terrace?: boolean; has_patio?: boolean
+          has_parking?: boolean; parking_type?: string | null; parking_spaces?: number
+          heating_type?: string | null; hot_water_type?: string | null; has_double_glazing?: boolean
+          reception_rooms?: number; kitchen_type?: string | null; appliances_included?: Json
+          broadband_type?: string | null; has_smart_home?: boolean; smart_home_features?: string | null
+          nearest_station?: string | null; station_distance_minutes?: number | null
+          nearby_schools?: Json; nearby_amenities?: Json
+          neighborhood_description?: string | null; local_highlights?: string | null; transport_links?: string | null
+          monthly_rent?: number | null; deposit_amount?: number | null; council_tax_band?: string | null
+          rent_includes?: Json; minimum_term_months?: number; available_from?: string | null
+          short_description?: string | null; full_description?: string | null; key_features?: Json
+          floor_plan_url?: string | null; virtual_tour_url?: string | null
+          video_tour_url?: string | null; tour_360_url?: string | null
+          fire_safety_compliant?: boolean | null; legionella_assessed?: boolean | null
+          legionella_assessment_date?: string | null; hmo_license_required?: boolean
+          hmo_license_number?: string | null; hmo_license_expiry?: string | null
+          managed_by?: string | null; management_type?: string | null; management_fee_percentage?: number | null
+          keys_held?: boolean; keys_count?: number; alarm_code?: string | null
+          emergency_contact_name?: string | null; emergency_contact_phone?: string | null
+          show_on_website?: boolean; featured_property?: boolean; custom_slug?: string | null
+          seo_title?: string | null; seo_meta_description?: string | null; seo_keywords?: Json
+          updated_at?: string
         }
       }
       property_photos: {
         Row: { id: string; property_id: string; storage_path: string; is_primary: boolean; created_at: string }
         Insert: { id?: string; property_id: string; storage_path: string; is_primary?: boolean }
         Update: { is_primary?: boolean; storage_path?: string }
+      }
+      property_rooms: {
+        Row: {
+          id: string; property_id: string; room_name: string; room_type: string
+          length_meters: number | null; width_meters: number | null
+          length_feet: number | null; width_feet: number | null
+          features: Json; floor_covering: string | null; description: string | null
+          created_at: string; updated_at: string
+        }
+        Insert: {
+          id?: string; property_id: string; room_name: string; room_type: string
+          length_meters?: number | null; width_meters?: number | null
+          length_feet?: number | null; width_feet?: number | null
+          features?: Json; floor_covering?: string | null; description?: string | null
+        }
+        Update: {
+          room_name?: string; room_type?: string
+          length_meters?: number | null; width_meters?: number | null
+          length_feet?: number | null; width_feet?: number | null
+          features?: Json; floor_covering?: string | null; description?: string | null
+          updated_at?: string
+        }
       }
       property_compliance: {
         Row: {
