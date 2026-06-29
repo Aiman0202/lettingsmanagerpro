@@ -9,15 +9,17 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Plus, PoundSterling, FileText, AlertTriangle, Receipt } from 'lucide-react'
+import { Plus, PoundSterling, FileText, AlertTriangle, Receipt, Upload, Paperclip, Eye, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { compressImage, generatePhotoFilename } from '@/utils/image-compression'
 import { ColumnVisibility } from '@/components/ui/ColumnVisibility'
 import { useColumnVisibility, type ColumnConfig } from '@/hooks/useColumnVisibility'
 import { FormField } from '@/components/ui/FormField'
 import { paymentSchema, expenseSchema, zodErrors } from '@/schemas/forms'
 import PaymentReceiptDialog from '@/components/PaymentReceiptDialog'
 import { calculateRunningBalance, calculatePeriod } from '@/utils/receipt'
+import { useToast } from '@/contexts/ToastContext'
 
 const statusVariant: Record<string, any> = {
   paid: 'success', pending: 'outline', overdue: 'destructive', partial: 'warning',
@@ -273,10 +275,15 @@ export default function FinancePage() {
 }
 
 function ExpensesTab({ expenses, onRefresh }: { expenses: any[]; onRefresh: () => void }) {
+  const qc = useQueryClient()
+  const { success, error: showError } = useToast()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ property_id: '', category: '', amount: '', date: '', description: '' })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [uploading, setUploading] = useState(false)
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
+  const [invoiceUrl, setInvoiceUrl] = useState<string | null>(null)
 
   const { data: properties } = useQuery({
     queryKey: ['properties-dropdown'],
@@ -285,6 +292,40 @@ function ExpensesTab({ expenses, onRefresh }: { expenses: any[]; onRefresh: () =
       return data ?? []
     },
   })
+
+  async function handleInvoiceUpload(file: File, propertyAddress: string, expenseDate: string) {
+    setUploading(true)
+    try {
+      // Generate filename based on property address and date
+      const timestamp = Date.now()
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf'
+      const slug = propertyAddress
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .substring(0, 50)
+      const filename = `${slug}_${expenseDate}_${timestamp}.${ext}`
+      const storagePath = `invoices/${filename}`
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('expense-invoices')
+        .upload(storagePath, file, {
+          contentType: file.type,
+          upsert: false
+        })
+
+      if (uploadError) throw uploadError
+
+      return storagePath
+    } catch (err) {
+      showError('Upload failed', err instanceof Error ? err.message : 'Could not upload invoice')
+      return null
+    } finally {
+      setUploading(false)
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -295,16 +336,67 @@ function ExpensesTab({ expenses, onRefresh }: { expenses: any[]; onRefresh: () =
     }
     setErrors({})
     setSaving(true)
-    await supabase.from('expenses').insert({
-      property_id: form.property_id,
-      category: form.category,
-      amount: parseFloat(form.amount),
-      date: form.date,
-      description: form.description || null,
-    })
-    setSaving(false)
-    onRefresh()
-    setShowForm(false)
+    
+    try {
+      let invoicePath = null
+
+      // Upload invoice if file selected
+      if (invoiceFile && form.property_id) {
+        // Get property address for filename
+        const prop = (properties as any)?.find((p: any) => p.id === form.property_id)
+        if (prop) {
+          invoicePath = await handleInvoiceUpload(invoiceFile, prop.address, form.date)
+        }
+      }
+
+      await (supabase.from('expenses') as any).insert({
+        property_id: form.property_id,
+        category: form.category,
+        amount: parseFloat(form.amount),
+        date: form.date,
+        description: form.description || null,
+        receipt_document_id: invoicePath,
+      })
+      
+      setSaving(false)
+      onRefresh()
+      setShowForm(false)
+      setInvoiceFile(null)
+      setInvoiceUrl(null)
+    } catch (err) {
+      setSaving(false)
+      showError('Save failed', err instanceof Error ? err.message : 'Could not save expense')
+    }
+  }
+
+  async function viewInvoice(storagePath: string) {
+    if (!storagePath) return
+    const { data } = await supabase.storage
+      .from('expense-invoices')
+      .createSignedUrl(storagePath, 3600)
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, '_blank')
+    }
+  }
+
+  async function deleteInvoice(storagePath: string, expenseId: string) {
+    if (!storagePath) return
+    try {
+      // Delete from storage
+      await supabase.storage
+        .from('expense-invoices')
+        .remove([storagePath])
+      
+      // Clear reference in database
+      await (supabase.from('expenses') as any)
+        .update({ receipt_document_id: null })
+        .eq('id', expenseId)
+      
+      onRefresh()
+      success('Invoice deleted', 'Invoice has been removed')
+    } catch (err) {
+      showError('Delete failed', err instanceof Error ? err.message : 'Could not delete invoice')
+    }
   }
 
   return (
@@ -321,11 +413,12 @@ function ExpensesTab({ expenses, onRefresh }: { expenses: any[]; onRefresh: () =
               <TableHead>Amount</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Invoice</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {expenses.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-gray-400">No expenses</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">No expenses</TableCell></TableRow>
             ) : expenses.map((e: any) => (
               <TableRow key={e.id}>
                 <TableCell>{e.properties?.address ?? '—'}</TableCell>
@@ -333,6 +426,32 @@ function ExpensesTab({ expenses, onRefresh }: { expenses: any[]; onRefresh: () =
                 <TableCell className="font-medium">{formatCurrency(e.amount)}</TableCell>
                 <TableCell>{formatDate(e.date)}</TableCell>
                 <TableCell>{e.description ?? '—'}</TableCell>
+                <TableCell>
+                  {e.receipt_document_id ? (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => viewInvoice(e.receipt_document_id)}
+                        title="View invoice"
+                      >
+                        <Eye className="h-4 w-4 mr-1" /> View
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-red-600 hover:text-red-700"
+                        onClick={() => deleteInvoice(e.receipt_document_id, e.id)}
+                        title="Delete invoice"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-400">No invoice</span>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -362,6 +481,52 @@ function ExpensesTab({ expenses, onRefresh }: { expenses: any[]; onRefresh: () =
                 <FormField label="Description">
                   <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                 </FormField>
+              </div>
+
+              {/* Invoice Upload */}
+              <div className="space-y-2">
+                <Label>Invoice Document</Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploading}
+                    onClick={() => {
+                      const input = document.createElement('input')
+                      input.type = 'file'
+                      input.accept = 'application/pdf,image/*'
+                      input.onchange = (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0]
+                        if (file) {
+                          setInvoiceFile(file)
+                          // Create preview URL for images
+                          if (file.type.startsWith('image/')) {
+                            setInvoiceUrl(URL.createObjectURL(file))
+                          }
+                        }
+                      }
+                      input.click()
+                    }}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploading ? 'Uploading...' : invoiceFile ? 'Change Invoice' : 'Upload Invoice'}
+                  </Button>
+                  {invoiceFile && (
+                    <span className="text-xs text-gray-500">
+                      <Paperclip className="h-3 w-3 inline mr-1" />
+                      {invoiceFile.name}
+                    </span>
+                  )}
+                </div>
+                {invoiceUrl && (
+                  <div className="mt-2">
+                    <img src={invoiceUrl} alt="Invoice preview" className="max-w-full h-32 object-contain border rounded" />
+                  </div>
+                )}
+                <p className="text-xs text-gray-500">
+                  PDF or image files (max 10MB). Will be auto-named with property address.
+                </p>
               </div>
             </div>
             <DialogFooter>
