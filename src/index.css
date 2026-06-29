@@ -149,6 +149,29 @@
     display: none !important;
   }
 
+  /* Page break controls */
+  hr {
+    page-break-after: always !important;
+    border: none !important;
+    border-top: 2px dashed #999 !important;
+    margin: 20px 0 !important;
+  }
+
+  /* Keep content together */
+  .no-page-break {
+    page-break-inside: avoid !important;
+  }
+
+  /* Force page break before element */
+  .page-break-before {
+    page-break-before: always !important;
+  }
+
+  /* Force page break after element */
+  .page-break-after {
+    page-break-after: always !important;
+  }
+
   /* Show URLs in links */
   a[href]::after {
     content: none; /* Don't show URLs - too noisy for internal links */
@@ -263,9 +286,40 @@
   .no-print { display: none !important; }
 }
 
+/* End of @media print */
+
 /* Screen preview styles for agreements */
 .agreement-preview-screen {
   background: white;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  max-width: 210mm;
+  margin: 20px auto;
+  padding: 20mm 15mm;
+}
+
+/* Editor page break indicator */
+.ProseMirror hr {
+  border: none;
+  border-top: 2px dashed #3b82f6;
+  margin: 24px 0;
+  position: relative;
+}
+
+.ProseMirror hr::after {
+  content: 'PAGE BREAK';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #3b82f6;
+  letter-spacing: 0.5px;
+}
+
+.agreement-preview-screen {
   box-shadow: 0 0 20px rgba(0,0,0,0.1);
   width: 210mm;
   min-height: 297mm;
@@ -383,4 +437,319 @@
   bottom: 0;
   pointer-events: none;
   z-index: 1;
+}
+
+/* ========================================
+   Agreement Document Styles
+   Consistent styling for all agreement outputs
+   ======================================== */
+
+/* Agreement Document Base */
+.agreement-document {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 12pt;
+  line-height: 1.6;
+  color: #0f172a;
+  max-width: 210mm;
+  margin: 0 auto;
+}
+
+/* Page Breaks */
+.page-break {
+  page-break-after: always;
+  break-after: page;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.page-break-before {
+  page-break-before: always;
+  break-before: page;
+}
+
+.avoid-page-break {
+  page-break-inside: avoid;
+  break-inside: avoid-page;
+}
+
+/* Cover Page */
+.cover-page {
+  page-break-after: always;
+  break-after: page;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 250mm;
+  text-align: center;
+  padding: 40px;
+}
+
+.cover-logo-container {
+  margin-bottom: 40px;
+}
+
+.cover-logo {
+  max-width: 200px;
+  max-height: 100px;
+  object-fit: contain;
+}
+
+.cover-title {
+  font-size: 28pt;
+  font-weight: bold;
+  color: #1e40af;
+  margin-bottom: 10px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.cover-subtitle {
+  font-size: 14pt;
+  color: #64748b;
+  margin-bottom: 50px;
+}
+
+.cover-divider {
+  width: 100px;
+  height: 3px;
+  background-color: #1e40af;
+  margin: 30px auto;
+}
+
+.cover-details {
+  width: 100%;
+  max-width: 500px;
+  text-align: left;
+  margin: 40px 0;
+}
+
+.cover-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cover-label {
+  font-weight: 600;
+  color: #64748b;
+}
+
+.cover-value {
+  color: #0f172a;
+  text-align: right;
+}
+
+.cover-footer {
+  margin-top: 60px;
+  font-size: 10pt;
+  color: #64748b;
+}
+
+/* Signatures Section */
+.signatures-section {
+  page-break-before: always;
+  break-before: page;
+  margin-top: 40px;
+  padding-top: 30px;
+  border-top: 2px solid #1e40af;
+}
+
+.signatures-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 40px;
+  margin-bottom: 40px;
+}
+
+.signature-block {
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.signature-image {
+  min-height: 80px;
+  margin-bottom: 15px;
+  border-bottom: 2px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signature-image img {
+  max-height: 80px;
+  max-width: 100%;
+}
+
+.signature-placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+.signature-name {
+  font-weight: 600;
+  font-size: 12pt;
+  margin: 10px 0 5px;
+}
+
+.signature-role {
+  font-size: 10pt;
+  color: #64748b;
+  margin: 0 0 10px;
+}
+
+.signature-date {
+  font-size: 10pt;
+  color: #64748b;
+  margin: 0;
+}
+
+.witness-section {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+/* Signature Page Declaration */
+.signature-declaration {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: #f8fafc;
+  border-left: 4px solid #1e40af;
+  border-radius: 4px;
+}
+
+.declaration-text {
+  font-size: 11pt;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 15px 0;
+}
+
+.declaration-list {
+  margin: 0 0 15px 0;
+  padding-left: 24px;
+  list-style-type: disc;
+}
+
+.declaration-list li {
+  margin-bottom: 10px;
+  font-size: 10pt;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.declaration-notice {
+  margin: 15px 0 0 0;
+  padding: 12px;
+  background-color: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  border-radius: 3px;
+  font-size: 9pt;
+  line-height: 1.5;
+  color: #92400e;
+}
+
+.signature-intro {
+  font-size: 10pt;
+  color: #64748b;
+  margin-bottom: 30px;
+  font-style: italic;
+}
+
+/* Agreement Headings */
+.agreement-document h1,
+.agreement-document h2,
+.agreement-document h3 {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #1e40af;
+  page-break-after: avoid;
+  break-after: avoid-page;
+}
+
+.agreement-document h1 {
+  font-size: 18pt;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.agreement-document h2 {
+  font-size: 14pt;
+  font-weight: bold;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+.agreement-document h3 {
+  font-size: 13pt;
+  font-weight: 600;
+  margin-top: 18px;
+  margin-bottom: 10px;
+}
+
+/* Agreement Paragraphs */
+.agreement-document p {
+  margin-bottom: 12px;
+  text-align: justify;
+}
+
+/* Agreement Tables */
+.agreement-document table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.agreement-document th,
+.agreement-document td {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.agreement-document th {
+  background-color: #f8fafc;
+  font-weight: 600;
+}
+
+/* Agreement Lists */
+.agreement-document ul,
+.agreement-document ol {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+.agreement-document li {
+  margin-bottom: 6px;
+}
+
+/* Compliance Sections */
+.compliance-section {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.compliance-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Print Optimization for Agreements */
+@media print {
+  .agreement-document {
+    max-width: 100%;
+  }
+  
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
 }
