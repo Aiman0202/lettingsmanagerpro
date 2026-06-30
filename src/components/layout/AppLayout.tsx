@@ -14,6 +14,10 @@ import { Breadcrumbs } from '@/components/ui/breadcrumb'
 import { NotificationsDropdown } from '@/components/NotificationsDropdown'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { ActivityFeed } from '@/components/ActivityFeed'
+import { MobileTabBar } from '@/components/layout/MobileTabBar'
+import { PWAInstallPrompt } from '@/components/PWAInstallPrompt'
+import { usePullToRefresh } from '@/hooks/usePullToRefresh'
+import { Loader2 } from 'lucide-react'
 
 const navGroups = [
   {
@@ -57,6 +61,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showActivity, setShowActivity] = useState(false)
+  const { containerRef: ptrRef, indicatorRef: ptrIndicatorRef } = usePullToRefresh()
 
   const { data: companySettings } = useQuery({
     queryKey: ['company-settings-header'],
@@ -267,10 +272,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
+        <main ref={ptrRef} className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 tab-bar-safe relative">
+          {/* Pull-to-refresh indicator */}
+          <div ref={ptrIndicatorRef} className="ptr-indicator opacity-0">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Pull to refresh</span>
+          </div>
           {children}
         </main>
       </div>
+
+      {/* Mobile bottom tab bar */}
+      <MobileTabBar badges={badges} />
+
+      {/* PWA install prompt */}
+      <PWAInstallPrompt />
 
       {/* Activity feed overlay */}
       {showActivity && (

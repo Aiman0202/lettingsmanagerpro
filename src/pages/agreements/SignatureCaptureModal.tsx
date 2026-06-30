@@ -11,6 +11,7 @@ import SignaturePad from 'signature_pad'
 import { embedSignaturesIntoAgreement } from '@/utils/agreements'
 import { useSwipe } from '@/hooks/useSwipe'
 import { useToast } from '@/contexts/ToastContext'
+import { useHapticFeedback } from '@/hooks/useHapticFeedback'
 
 interface Signatory {
   type: 'tenant' | 'agent'
@@ -69,6 +70,7 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const sigPadRef = useRef<SignaturePad | null>(null)
   const { success, error: showError } = useToast()
+  const { success: hapticSuccess } = useHapticFeedback()
 
   const { data: agreement } = useQuery({
     queryKey: ['agreement-detail', agreementId],
@@ -391,6 +393,8 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
       // Clear session on successful completion
       localStorage.removeItem(`signature-session-${agreementId}`)
       
+      // Haptic feedback on successful signature capture
+      hapticSuccess()
       success('Signatures saved', 'Agreement has been signed successfully')
       onCompleted()
     } catch (err) {

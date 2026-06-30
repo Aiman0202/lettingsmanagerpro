@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageTransition } from '@/components/PageTransition'
 import LoginPage from '@/pages/auth/LoginPage'
 import DashboardPage from '@/pages/dashboard/DashboardPage'
 import PropertiesPage from '@/pages/properties/PropertiesPage'
@@ -50,7 +51,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     )
   }
   if (!session) return <Navigate to="/login" replace />
-  return <AppLayout>{children}</AppLayout>
+  return (
+    <AppLayout>
+      <PageTransition>{children}</PageTransition>
+    </AppLayout>
+  )
 }
 
 function AppRoutes() {

@@ -14,7 +14,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'splash.svg', 'offline.html'],
       manifest: {
         name: 'Property Management Platform',
         short_name: 'Lettings',
@@ -31,13 +31,51 @@ export default defineConfig({
         ],
       },
       workbox: {
+        navigateFallback: '/offline.html',
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
+          // Supabase storage images — CacheFirst
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'supabase-images',
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            },
+          },
+          // Supabase REST API — NetworkFirst with short cache
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-api',
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 5 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Supabase Auth — NetworkOnly (never cache auth)
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/auth\/.*/i,
+            handler: 'NetworkOnly',
+          },
+          // Static assets (JS/CSS/fonts) — CacheFirst
+          {
+            urlPattern: /\.(?:js|css|woff2?|ttf|eot)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'static-assets',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          // HTML pages — NetworkFirst
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html-pages',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 },
             },
           },
         ],
