@@ -329,6 +329,7 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
   }
 
   async function finalise() {
+    if (saving) return // guard against double-invocation
     setSaving(true)
     
     try {
@@ -340,6 +341,12 @@ export default function SignatureCaptureModal({ agreementId, onClose, onComplete
         phase,
         timestamp: Date.now(),
       }))
+
+      // Delete any existing signatures for this agreement to prevent duplicates
+      await supabase
+        .from('agreement_signatures')
+        .delete()
+        .eq('agreement_id', agreementId)
 
       // Collect all signature inserts
       const signatureInserts = signatories.map((signatory, i) => {
