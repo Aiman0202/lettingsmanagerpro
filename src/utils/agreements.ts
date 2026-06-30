@@ -262,7 +262,7 @@ export async function generateAgreementForTenancy(tenancyId: string): Promise<st
       tenancy_id: tenancyId,
       template_id: null,
       merged_content_json: { body: finalHtml, context: mergeContext },
-      merged_html: finalHtml,
+      merged_html: bodyHtml,
       status: 'pending_signatures',
       council_submission_status: 'not_submitted',
     })
