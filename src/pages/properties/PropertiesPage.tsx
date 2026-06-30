@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Building2, MapPin, Eye, Power, CheckCircle, ArrowUpRight, ShieldCheck } from 'lucide-react'
+import { Plus, Search, Building2, MapPin, Eye, Power, CheckCircle, ArrowUpRight, ShieldCheck, ChevronDown, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatDate } from '@/lib/utils'
 import { generateNextReference } from '@/utils/references'
@@ -365,12 +365,50 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
   const qc = useQueryClient()
   const { success, error: showError } = useToast()
   const [form, setForm] = useState({
+    // Basic Info
     address: '', postcode: '', type: 'flat', bedrooms: '', bathrooms: '',
     status: 'available' as PropertyStatus, description: '', epc_rating: '', landlord_id: '',
     utility_note: '', inventory_note: '',
+    // Key Features
+    furnished_status: '', property_subtype: '', floor_number: '', total_floors: '',
+    lift_access: false, has_garden: false, garden_type: '', has_balcony: false,
+    has_terrace: false, has_patio: false, has_parking: false, parking_type: '',
+    parking_spaces: 0, heating_type: '', hot_water_type: '', has_double_glazing: false,
+    reception_rooms: 1, kitchen_type: '', broadband_type: '', appliances_included: [] as string[],
+    has_smart_home: false, smart_home_features: '',
+    // Location
+    nearest_station: '', station_distance_minutes: '', council_tax_band: '',
+    // Financial
+    monthly_rent: '', deposit_amount: '', minimum_term_months: 12, available_from: '',
+    // Descriptions
+    short_description: '', key_features: [] as string[],
+    // Media
+    floor_plan_url: '', virtual_tour_url: '', video_tour_url: '',
+    // Compliance
+    hmo_license_required: false, hmo_license_number: '', hmo_license_expiry: '',
+    // Management
+    management_type: '', management_fee_percentage: '', keys_held: false, keys_count: 0,
+    emergency_contact_name: '', emergency_contact_phone: '',
+    // Website
+    show_on_website: true, featured_property: false, seo_title: '', seo_meta_description: '',
   })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    basic: true,
+    features: false,
+    location: false,
+    financial: false,
+    descriptions: false,
+    media: false,
+    compliance: false,
+    management: false,
+    website: false,
+  })
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
+  }
 
   const { data: landlords } = useQuery({
     queryKey: ['landlords-list'],
@@ -393,6 +431,7 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
   useEffect(() => {
     if (existing) {
       setForm({
+        // Basic
         address: existing.address ?? '',
         postcode: existing.postcode ?? '',
         type: existing.type ?? 'flat',
@@ -404,6 +443,61 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
         landlord_id: existing.landlord_id ?? '',
         utility_note: existing.utility_note ?? '',
         inventory_note: existing.inventory_note ?? '',
+        // Features
+        furnished_status: existing.furnished_status ?? '',
+        property_subtype: existing.property_subtype ?? '',
+        floor_number: String(existing.floor_number ?? ''),
+        total_floors: String(existing.total_floors ?? ''),
+        lift_access: existing.lift_access ?? false,
+        has_garden: existing.has_garden ?? false,
+        garden_type: existing.garden_type ?? '',
+        has_balcony: existing.has_balcony ?? false,
+        has_terrace: existing.has_terrace ?? false,
+        has_patio: existing.has_patio ?? false,
+        has_parking: existing.has_parking ?? false,
+        parking_type: existing.parking_type ?? '',
+        parking_spaces: existing.parking_spaces ?? 0,
+        heating_type: existing.heating_type ?? '',
+        hot_water_type: existing.hot_water_type ?? '',
+        has_double_glazing: existing.has_double_glazing ?? false,
+        reception_rooms: existing.reception_rooms ?? 1,
+        kitchen_type: existing.kitchen_type ?? '',
+        broadband_type: existing.broadband_type ?? '',
+        appliances_included: existing.appliances_included ?? [],
+        has_smart_home: existing.has_smart_home ?? false,
+        smart_home_features: existing.smart_home_features ?? '',
+        // Location
+        nearest_station: existing.nearest_station ?? '',
+        station_distance_minutes: String(existing.station_distance_minutes ?? ''),
+        council_tax_band: existing.council_tax_band ?? '',
+        // Financial
+        monthly_rent: String(existing.monthly_rent ?? ''),
+        deposit_amount: String(existing.deposit_amount ?? ''),
+        minimum_term_months: existing.minimum_term_months ?? 12,
+        available_from: existing.available_from ?? '',
+        // Descriptions
+        short_description: existing.short_description ?? '',
+        key_features: existing.key_features ?? [],
+        // Media
+        floor_plan_url: existing.floor_plan_url ?? '',
+        virtual_tour_url: existing.virtual_tour_url ?? '',
+        video_tour_url: existing.video_tour_url ?? '',
+        // Compliance
+        hmo_license_required: existing.hmo_license_required ?? false,
+        hmo_license_number: existing.hmo_license_number ?? '',
+        hmo_license_expiry: existing.hmo_license_expiry ?? '',
+        // Management
+        management_type: existing.management_type ?? '',
+        management_fee_percentage: String(existing.management_fee_percentage ?? ''),
+        keys_held: existing.keys_held ?? false,
+        keys_count: existing.keys_count ?? 0,
+        emergency_contact_name: existing.emergency_contact_name ?? '',
+        emergency_contact_phone: existing.emergency_contact_phone ?? '',
+        // Website
+        show_on_website: existing.show_on_website ?? true,
+        featured_property: existing.featured_property ?? false,
+        seo_title: existing.seo_title ?? '',
+        seo_meta_description: existing.seo_meta_description ?? '',
       })
     }
   }, [existing])
