@@ -596,6 +596,237 @@ export default function PropertyDetailPage() {
         </Table>
       </Card>
 
+      {/* Descriptions & Key Features */}
+      <Card>
+        <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={() => toggleSection('descriptions')}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Descriptions & Key Features
+            </CardTitle>
+            {expandedSections.descriptions ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          </div>
+        </CardHeader>
+        {expandedSections.descriptions && (
+          <CardContent className="space-y-4 text-sm">
+            {property.short_description && (
+              <div>
+                <p className="text-gray-500 mb-1">Short Description</p>
+                <p className="text-sm">{property.short_description}</p>
+              </div>
+            )}
+            {property.full_description && (
+              <div>
+                <p className="text-gray-500 mb-1">Full Description</p>
+                <p className="text-sm whitespace-pre-line">{property.full_description}</p>
+              </div>
+            )}
+            {property.key_features && Array.isArray(property.key_features) && property.key_features.length > 0 && (
+              <div>
+                <p className="text-gray-500 mb-2">Key Features</p>
+                <ul className="list-disc list-inside space-y-1">
+                  {(property.key_features as string[]).map((feature, idx) => (
+                    <li key={idx} className="text-sm">{feature}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {!property.short_description && !property.full_description && (!property.key_features || property.key_features.length === 0) && (
+              <p className="text-gray-400 text-sm">No descriptions or features added yet</p>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Media & Virtual Tours */}
+      <Card>
+        <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={() => toggleSection('media')}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Media & Virtual Tours
+            </CardTitle>
+            {expandedSections.media ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          </div>
+        </CardHeader>
+        {expandedSections.media && (
+          <CardContent className="space-y-3 text-sm">
+            {property.floor_plan_url && (
+              <div>
+                <p className="text-gray-500">Floor Plan</p>
+                <a href={property.floor_plan_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  View Floor Plan →
+                </a>
+              </div>
+            )}
+            {property.virtual_tour_url && (
+              <div>
+                <p className="text-gray-500">Virtual Tour</p>
+                <a href={property.virtual_tour_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  Take Virtual Tour →
+                </a>
+              </div>
+            )}
+            {property.video_tour_url && (
+              <div>
+                <p className="text-gray-500">Video Tour</p>
+                <a href={property.video_tour_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  Watch Video Tour →
+                </a>
+              </div>
+            )}
+            {!property.floor_plan_url && !property.virtual_tour_url && !property.video_tour_url && (
+              <p className="text-gray-400 text-sm">No media links added yet</p>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Enhanced Compliance */}
+      <Card>
+        <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={() => toggleSection('compliance')}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <FileCheck className="h-5 w-5" />
+              Enhanced Compliance
+            </CardTitle>
+            {expandedSections.compliance ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          </div>
+        </CardHeader>
+        {expandedSections.compliance && (
+          <CardContent className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-500">Fire Safety</p>
+                <p className="font-medium">{property.fire_safety_compliant ? '✓ Compliant' : '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Legionella Assessed</p>
+                <p className="font-medium">{property.legionella_assessed ? '✓ Yes' : '—'}</p>
+              </div>
+            </div>
+            <div className="border-t pt-3">
+              <p className="text-gray-500 mb-2">HMO License</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500">Required</p>
+                  <p className="font-medium">{property.hmo_license_required ? 'Yes' : 'No'}</p>
+                </div>
+                {property.hmo_license_number && (
+                  <div>
+                    <p className="text-xs text-gray-500">License #</p>
+                    <p className="font-medium font-mono">{property.hmo_license_number}</p>
+                  </div>
+                )}
+                {property.hmo_license_expiry && (
+                  <div>
+                    <p className="text-xs text-gray-500">Expires</p>
+                    <p className="font-medium">{formatDate(property.hmo_license_expiry)}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Management Details */}
+      <Card>
+        <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={() => toggleSection('management')}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Management Details
+            </CardTitle>
+            {expandedSections.management ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          </div>
+        </CardHeader>
+        {expandedSections.management && (
+          <CardContent className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-500">Management Type</p>
+                <p className="font-medium">{property.management_type || '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Management Fee</p>
+                <p className="font-medium">{property.management_fee_percentage ? `${property.management_fee_percentage}%` : '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Keys Held</p>
+                <p className="font-medium">{property.keys_held ? `Yes (${property.keys_count} keys)` : 'No'}</p>
+              </div>
+              {property.alarm_code && (
+                <div>
+                  <p className="text-gray-500">Alarm Code</p>
+                  <p className="font-medium font-mono">{property.alarm_code}</p>
+                </div>
+              )}
+            </div>
+            {(property.emergency_contact_name || property.emergency_contact_phone) && (
+              <div className="border-t pt-3">
+                <p className="text-gray-500 mb-2">Emergency Contact</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500">Name</p>
+                    <p className="font-medium">{property.emergency_contact_name || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Phone</p>
+                    <p className="font-medium">{property.emergency_contact_phone || '—'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Website Display Settings */}
+      <Card>
+        <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={() => toggleSection('website')}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Website Display Settings
+            </CardTitle>
+            {expandedSections.website ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          </div>
+        </CardHeader>
+        {expandedSections.website && (
+          <CardContent className="space-y-3 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-500">Show on Website</p>
+                <p className="font-medium">{property.show_on_website ? '✓ Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Featured Property</p>
+                <p className="font-medium">{property.featured_property ? '✓ Featured' : 'No'}</p>
+              </div>
+            </div>
+            {property.custom_slug && (
+              <div>
+                <p className="text-gray-500">Custom URL Slug</p>
+                <p className="font-medium font-mono">{property.custom_slug}</p>
+              </div>
+            )}
+            {property.seo_title && (
+              <div>
+                <p className="text-gray-500">SEO Title</p>
+                <p className="font-medium">{property.seo_title}</p>
+              </div>
+            )}
+            {property.seo_meta_description && (
+              <div>
+                <p className="text-gray-500">Meta Description</p>
+                <p className="text-sm">{property.seo_meta_description}</p>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
       {/* Photo Gallery */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
