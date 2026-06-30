@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Plus, AlertTriangle, CheckCircle, Clock, FileText, Upload, Trash2, Star, ShieldCheck, Ticket, Download, Calendar, Eye, MessageSquare, Zap, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Plus, AlertTriangle, CheckCircle, Clock, FileText, Upload, Trash2, Star, ShieldCheck, Ticket, Download, Calendar, Eye, MessageSquare, Zap, ClipboardList, Home, MapPin, PoundSterling, FileCheck, Settings, Globe, ChevronDown, ChevronRight } from 'lucide-react'
 import { formatDate, getComplianceStatus, getDaysUntil } from '@/lib/utils'
 import ComplianceFormDialog from '@/components/ComplianceFormDialog'
 import PropertyTimeline from '@/components/PropertyTimeline'
@@ -96,6 +96,20 @@ export default function PropertyDetailPage() {
   const [showViewingForm, setShowViewingForm] = useState(false)
   const [feedbackViewing, setFeedbackViewing] = useState<any>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    features: false,
+    location: false,
+    financial: false,
+    descriptions: false,
+    media: false,
+    compliance: false,
+    management: false,
+    website: false,
+  })
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }))
+  }
 
   const { data: photos } = useQuery({
     queryKey: ['property-photos', id],
@@ -241,6 +255,157 @@ export default function PropertyDetailPage() {
               </div>
             )}
           </CardContent>
+        </Card>
+
+        {/* Property Features */}
+        <Card>
+          <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={() => toggleSection('features')}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Home className="h-5 w-5" />
+                Property Features
+              </CardTitle>
+              {expandedSections.features ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            </div>
+          </CardHeader>
+          {expandedSections.features && (
+            <CardContent className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Subtype</p>
+                <p className="font-medium">{property.property_subtype || '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Floor</p>
+                <p className="font-medium">{property.floor_number ? `Floor ${property.floor_number}${property.total_floors ? ` of ${property.total_floors}` : ''}` : '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Furnished</p>
+                <p className="font-medium">{property.furnished_status || '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Lift Access</p>
+                <p className="font-medium">{property.lift_access ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Garden</p>
+                <p className="font-medium">{property.has_garden ? (property.garden_type || 'Yes') : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Balcony/Terrace/Patio</p>
+                <p className="font-medium">
+                  {[property.has_balcony && 'Balcony', property.has_terrace && 'Terrace', property.has_patio && 'Patio'].filter(Boolean).join(', ') || 'None'}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-500">Parking</p>
+                <p className="font-medium">{property.has_parking ? (property.parking_type || `Yes (${property.parking_spaces} spaces)`) : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Heating</p>
+                <p className="font-medium">{property.heating_type || '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Hot Water</p>
+                <p className="font-medium">{property.hot_water_type || '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Double Glazing</p>
+                <p className="font-medium">{property.has_double_glazing ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Reception Rooms</p>
+                <p className="font-medium">{property.reception_rooms || 1}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Kitchen Type</p>
+                <p className="font-medium">{property.kitchen_type || '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Broadband</p>
+                <p className="font-medium">{property.broadband_type || '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Smart Home</p>
+                <p className="font-medium">{property.has_smart_home ? 'Yes' : 'No'}</p>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Location & Area */}
+        <Card>
+          <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={() => toggleSection('location')}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Location & Area
+              </CardTitle>
+              {expandedSections.location ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            </div>
+          </CardHeader>
+          {expandedSections.location && (
+            <CardContent className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-gray-500">Nearest Station</p>
+                  <p className="font-medium">{property.nearest_station || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Distance</p>
+                  <p className="font-medium">{property.station_distance_minutes ? `${property.station_distance_minutes} min` : '—'}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-gray-500">Council Tax Band</p>
+                <p className="font-medium">{property.council_tax_band || '—'}</p>
+              </div>
+              {property.neighborhood_description && (
+                <div>
+                  <p className="text-gray-500 mb-1">Neighborhood</p>
+                  <p className="text-sm">{property.neighborhood_description}</p>
+                </div>
+              )}
+              {property.transport_links && (
+                <div>
+                  <p className="text-gray-500 mb-1">Transport Links</p>
+                  <p className="text-sm">{property.transport_links}</p>
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Financial Details */}
+        <Card>
+          <CardHeader className="cursor-pointer hover:bg-gray-50" onClick={() => toggleSection('financial')}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <PoundSterling className="h-5 w-5" />
+                Financial Details
+              </CardTitle>
+              {expandedSections.financial ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            </div>
+          </CardHeader>
+          {expandedSections.financial && (
+            <CardContent className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Monthly Rent</p>
+                <p className="font-medium text-lg">{property.monthly_rent ? `£${property.monthly_rent}` : '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Deposit</p>
+                <p className="font-medium">{property.deposit_amount ? `£${property.deposit_amount}` : '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Minimum Term</p>
+                <p className="font-medium">{property.minimum_term_months ? `${property.minimum_term_months} months` : '—'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Available From</p>
+                <p className="font-medium">{property.available_from ? formatDate(property.available_from) : '—'}</p>
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         {/* Landlord */}
