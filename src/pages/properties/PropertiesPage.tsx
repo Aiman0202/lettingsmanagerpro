@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Search, Building2, MapPin, Eye, Power, CheckCircle, ArrowUpRight, ShieldCheck, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Search, Building2, MapPin, Eye, Power, CheckCircle, ArrowUpRight, ShieldCheck, ChevronDown, ChevronRight, Home, PoundSterling, Globe } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { formatDate } from '@/lib/utils'
 import { generateNextReference } from '@/utils/references'
@@ -607,79 +607,253 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent onClose={onClose}>
+      <DialogContent onClose={onClose} className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSave}>
           <DialogHeader>
             <DialogTitle>{editId ? 'Edit Property' : 'Add Property'}</DialogTitle>
           </DialogHeader>
           <div className="p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Address" error={errors.address} required className="col-span-2">
-                <Input value={form.address} onChange={(e) => { setForm({ ...form, address: e.target.value }); setErrors((p) => ({ ...p, address: '' })) }} />
-              </FormField>
-              <FormField label="Postcode" error={errors.postcode} required>
-                <Input value={form.postcode} onChange={(e) => { setForm({ ...form, postcode: e.target.value }); setErrors((p) => ({ ...p, postcode: '' })) }} />
-              </FormField>
-              <FormField label="Type">
-                <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                  <option value="flat">Flat</option>
-                  <option value="house">House</option>
-                  <option value="studio">Studio</option>
-                  <option value="room">Room</option>
-                  <option value="commercial">Commercial</option>
-                </Select>
-              </FormField>
-              <FormField label="Bedrooms">
-                <Input type="number" min="0" value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} />
-              </FormField>
-              <FormField label="Bathrooms">
-                <Input type="number" min="0" value={form.bathrooms} onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} />
-              </FormField>
-              <FormField label="Status">
-                <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as PropertyStatus })}>
-                  <option value="available">Available</option>
-                  <option value="let">Let</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="inactive">Inactive</option>
-                </Select>
-              </FormField>
-              <FormField label="EPC Rating">
-                <Select value={form.epc_rating} onChange={(e) => setForm({ ...form, epc_rating: e.target.value })}>
-                  <option value="">Unknown</option>
-                  {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </Select>
-              </FormField>
-              <FormField label="Landlord" className="col-span-2">
-                <Select value={form.landlord_id} onChange={(e) => setForm({ ...form, landlord_id: e.target.value })}>
-                  <option value="">Unassigned</option>
-                  {(landlords ?? []).map((l: any) => (
-                    <option key={l.id} value={l.id}>{l.full_name}</option>
-                  ))}
-                </Select>
-              </FormField>
-              <FormField label="Description" className="col-span-2">
-                <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
-              </FormField>
-              <FormField label="Utility Note" className="col-span-2">
-                <Textarea 
-                  value={form.utility_note} 
-                  onChange={(e) => setForm({ ...form, utility_note: e.target.value })} 
-                  rows={3}
-                  placeholder="Gas meter: 12345678, Electric meter: 87654321, Water: Thames Water..."
-                />
-                <p className="text-xs text-gray-500 mt-1">Utility meter numbers, providers, or special arrangements</p>
-              </FormField>
-              <FormField label="Inventory Note" className="col-span-2">
-                <Textarea 
-                  value={form.inventory_note} 
-                  onChange={(e) => setForm({ ...form, inventory_note: e.target.value })} 
-                  rows={3}
-                  placeholder="All furniture is brand new, white goods included..."
-                />
-                <p className="text-xs text-gray-500 mt-1">Special notes about inventory items or condition</p>
-              </FormField>
+            {/* Basic Information */}
+            <div className="border rounded-lg">
+              <div 
+                className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                onClick={() => toggleSection('basic')}
+              >
+                <div className="flex items-center gap-2 font-semibold">
+                  <Building2 className="h-5 w-5" />
+                  Basic Information
+                </div>
+                {expandedSections.basic ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+              </div>
+              {expandedSections.basic && (
+                <div className="p-4 border-t grid grid-cols-2 gap-4">
+                  <FormField label="Address" error={errors.address} required className="col-span-2">
+                    <Input value={form.address} onChange={(e) => { setForm({ ...form, address: e.target.value }); setErrors((p) => ({ ...p, address: '' })) }} />
+                  </FormField>
+                  <FormField label="Postcode" error={errors.postcode} required>
+                    <Input value={form.postcode} onChange={(e) => { setForm({ ...form, postcode: e.target.value }); setErrors((p) => ({ ...p, postcode: '' })) }} />
+                  </FormField>
+                  <FormField label="Type">
+                    <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                      <option value="flat">Flat</option>
+                      <option value="house">House</option>
+                      <option value="studio">Studio</option>
+                      <option value="room">Room</option>
+                      <option value="commercial">Commercial</option>
+                    </Select>
+                  </FormField>
+                  <FormField label="Bedrooms">
+                    <Input type="number" min="0" value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} />
+                  </FormField>
+                  <FormField label="Bathrooms">
+                    <Input type="number" min="0" value={form.bathrooms} onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} />
+                  </FormField>
+                  <FormField label="Status">
+                    <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as PropertyStatus })}>
+                      <option value="available">Available</option>
+                      <option value="let">Let</option>
+                      <option value="maintenance">Maintenance</option>
+                      <option value="inactive">Inactive</option>
+                    </Select>
+                  </FormField>
+                  <FormField label="EPC Rating">
+                    <Select value={form.epc_rating} onChange={(e) => setForm({ ...form, epc_rating: e.target.value })}>
+                      <option value="">Unknown</option>
+                      {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  <FormField label="Landlord" className="col-span-2">
+                    <Select value={form.landlord_id} onChange={(e) => setForm({ ...form, landlord_id: e.target.value })}>
+                      <option value="">Unassigned</option>
+                      {(landlords ?? []).map((l: any) => (
+                        <option key={l.id} value={l.id}>{l.full_name}</option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  <FormField label="Description" className="col-span-2">
+                    <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
+                  </FormField>
+                  <FormField label="Utility Note" className="col-span-2">
+                    <Textarea 
+                      value={form.utility_note} 
+                      onChange={(e) => setForm({ ...form, utility_note: e.target.value })} 
+                      rows={3}
+                      placeholder="Gas meter: 12345678, Electric meter: 87654321, Water: Thames Water..."
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Utility meter numbers, providers, or special arrangements</p>
+                  </FormField>
+                  <FormField label="Inventory Note" className="col-span-2">
+                    <Textarea 
+                      value={form.inventory_note} 
+                      onChange={(e) => setForm({ ...form, inventory_note: e.target.value })} 
+                      rows={3}
+                      placeholder="All furniture is brand new, white goods included..."
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Special notes about inventory items or condition</p>
+                  </FormField>
+                </div>
+              )}
+            </div>
+
+            {/* Property Features */}
+            <div className="border rounded-lg">
+              <div 
+                className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                onClick={() => toggleSection('features')}
+              >
+                <div className="flex items-center gap-2 font-semibold">
+                  <Home className="h-5 w-5" />
+                  Property Features
+                </div>
+                {expandedSections.features ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+              </div>
+              {expandedSections.features && (
+                <div className="p-4 border-t grid grid-cols-2 gap-4">
+                  <FormField label="Property Subtype">
+                    <Input value={form.property_subtype} onChange={(e) => setForm({ ...form, property_subtype: e.target.value })} placeholder="e.g., Maisonette, Terraced" />
+                  </FormField>
+                  <FormField label="Furnished Status">
+                    <Select value={form.furnished_status} onChange={(e) => setForm({ ...form, furnished_status: e.target.value })}>
+                      <option value="">Select...</option>
+                      <option value="furnished">Furnished</option>
+                      <option value="part_furnished">Part Furnished</option>
+                      <option value="unfurnished">Unfurnished</option>
+                    </Select>
+                  </FormField>
+                  <FormField label="Floor Number">
+                    <Input type="number" value={form.floor_number} onChange={(e) => setForm({ ...form, floor_number: e.target.value })} />
+                  </FormField>
+                  <FormField label="Total Floors">
+                    <Input type="number" value={form.total_floors} onChange={(e) => setForm({ ...form, total_floors: e.target.value })} />
+                  </FormField>
+                  <FormField label="Heating Type">
+                    <Select value={form.heating_type} onChange={(e) => setForm({ ...form, heating_type: e.target.value })}>
+                      <option value="">Select...</option>
+                      <option value="gas_central">Gas Central</option>
+                      <option value="electric">Electric</option>
+                      <option value="underfloor">Underfloor</option>
+                      <option value="oil">Oil</option>
+                    </Select>
+                  </FormField>
+                  <FormField label="Reception Rooms">
+                    <Input type="number" min="1" value={form.reception_rooms} onChange={(e) => setForm({ ...form, reception_rooms: e.target.value })} />
+                  </FormField>
+                  <div className="col-span-2 flex items-center gap-4">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={form.lift_access} onChange={(e) => setForm({ ...form, lift_access: e.target.checked })} />
+                      <span>Lift Access</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={form.has_garden} onChange={(e) => setForm({ ...form, has_garden: e.target.checked })} />
+                      <span>Has Garden</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={form.has_parking} onChange={(e) => setForm({ ...form, has_parking: e.target.checked })} />
+                      <span>Has Parking</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={form.has_double_glazing} onChange={(e) => setForm({ ...form, has_double_glazing: e.target.checked })} />
+                      <span>Double Glazing</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Financial Details */}
+            <div className="border rounded-lg">
+              <div 
+                className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                onClick={() => toggleSection('financial')}
+              >
+                <div className="flex items-center gap-2 font-semibold">
+                  <PoundSterling className="h-5 w-5" />
+                  Financial Details
+                </div>
+                {expandedSections.financial ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+              </div>
+              {expandedSections.financial && (
+                <div className="p-4 border-t grid grid-cols-2 gap-4">
+                  <FormField label="Monthly Rent (£)">
+                    <Input type="number" step="0.01" value={form.monthly_rent} onChange={(e) => setForm({ ...form, monthly_rent: e.target.value })} />
+                  </FormField>
+                  <FormField label="Deposit Amount (£)">
+                    <Input type="number" step="0.01" value={form.deposit_amount} onChange={(e) => setForm({ ...form, deposit_amount: e.target.value })} />
+                  </FormField>
+                  <FormField label="Council Tax Band">
+                    <Select value={form.council_tax_band} onChange={(e) => setForm({ ...form, council_tax_band: e.target.value })}>
+                      <option value="">Select...</option>
+                      {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((band) => (
+                        <option key={band} value={band}>{band}</option>
+                      ))}
+                    </Select>
+                  </FormField>
+                  <FormField label="Minimum Term (months)">
+                    <Input type="number" min="1" value={form.minimum_term_months} onChange={(e) => setForm({ ...form, minimum_term_months: parseInt(e.target.value) })} />
+                  </FormField>
+                  <FormField label="Available From" className="col-span-2">
+                    <Input type="date" value={form.available_from} onChange={(e) => setForm({ ...form, available_from: e.target.value })} />
+                  </FormField>
+                </div>
+              )}
+            </div>
+
+            {/* Location & Area */}
+            <div className="border rounded-lg">
+              <div 
+                className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                onClick={() => toggleSection('location')}
+              >
+                <div className="flex items-center gap-2 font-semibold">
+                  <MapPin className="h-5 w-5" />
+                  Location & Area
+                </div>
+                {expandedSections.location ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+              </div>
+              {expandedSections.location && (
+                <div className="p-4 border-t grid grid-cols-2 gap-4">
+                  <FormField label="Nearest Station">
+                    <Input value={form.nearest_station} onChange={(e) => setForm({ ...form, nearest_station: e.target.value })} />
+                  </FormField>
+                  <FormField label="Distance (minutes)">
+                    <Input type="number" value={form.station_distance_minutes} onChange={(e) => setForm({ ...form, station_distance_minutes: e.target.value })} />
+                  </FormField>
+                </div>
+              )}
+            </div>
+
+            {/* Website Display */}
+            <div className="border rounded-lg">
+              <div 
+                className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50"
+                onClick={() => toggleSection('website')}
+              >
+                <div className="flex items-center gap-2 font-semibold">
+                  <Globe className="h-5 w-5" />
+                  Website Display Settings
+                </div>
+                {expandedSections.website ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+              </div>
+              {expandedSections.website && (
+                <div className="p-4 border-t space-y-3">
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={form.show_on_website} onChange={(e) => setForm({ ...form, show_on_website: e.target.checked })} />
+                    <span>Show on Website</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={form.featured_property} onChange={(e) => setForm({ ...form, featured_property: e.target.checked })} />
+                    <span>Featured Property</span>
+                  </label>
+                  <FormField label="SEO Title">
+                    <Input value={form.seo_title} onChange={(e) => setForm({ ...form, seo_title: e.target.value })} />
+                  </FormField>
+                  <FormField label="Meta Description">
+                    <Textarea value={form.seo_meta_description} onChange={(e) => setForm({ ...form, seo_meta_description: e.target.value })} rows={2} />
+                  </FormField>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
