@@ -15,6 +15,7 @@
    - 2.5 [Arrears Management](#25-arrears-management)
    - 2.6 [Inspection Workflow](#26-inspection-workflow)
    - 2.7 [Landlord Statement Generation](#27-landlord-statement-generation)
+   - 2.8 [Property Enhancement & Room Management](#28-property-enhancement--room-management)
 3. [Data Flow Patterns](#3-data-flow-patterns)
 4. [Frontend Architecture](#4-frontend-architecture)
 5. [PWA Configuration](#5-pwa-configuration)
@@ -371,6 +372,96 @@ graph TB
     SAVE --> MARK_PAID[Mark as Paid with Date]
     MARK_PAID --> PDF[Store PDF Path]
 ```
+
+---
+
+### 2.8 Property Enhancement & Room Management
+
+Enhanced property data model with 50+ fields and room management.
+
+#### Property Enhancement Data Flow
+
+```mermaid
+graph TB
+    FORM[PropertyFormDialog Opens] --> INIT[Initialize Form State - 50+ Fields]
+    INIT --> SECTIONS[5 Collapsible Sections]
+    SECTIONS --> BASIC[Basic Information]
+    SECTIONS --> FEATURES[Property Features]
+    SECTIONS --> FINANCIAL[Financial Details]
+    SECTIONS --> LOCATION[Location & Area]
+    SECTIONS --> WEBSITE[Website Display Settings]
+    BASIC --> SUBMIT[User Fills Fields & Submits]
+    FEATURES --> SUBMIT
+    FINANCIAL --> SUBMIT
+    LOCATION --> SUBMIT
+    WEBSITE --> SUBMIT
+    SUBMIT --> VALIDATE[Zod Validation]
+    VALIDATE --> CONVERT[Type Conversion - parseInt, parseFloat]
+    CONVERT --> UPSERT[Supabase Upsert - properties table]
+    UPSERT --> INVALIDATE[Invalidate Query Cache]
+    INVALIDATE --> DETAIL[PropertyDetailPage - 8 Collapsible Sections]
+```
+
+**Form State Management:**
+- All 50+ fields stored in single `form` state object
+- Fields organized by category: Basic, Features, Financial, Location, Website
+- Collapsible sections controlled by `expandedSections` state
+- Type conversion on save (parseInt for integers, parseFloat for decimals)
+- Null handling for optional fields
+
+#### Room Management Workflow
+
+```mermaid
+graph TB
+    DETAIL[PropertyDetailPage] --> ROOMS[PropertyRooms Component]
+    ROOMS --> QUERY[Query property_rooms by property_id]
+    QUERY --> LIST[Room List with Summary]
+    LIST --> ADD[Add Room Button]
+    ADD --> FORM[Room Form Dialog]
+    FORM --> TYPE{Room Type}
+    TYPE --> BEDROOM[Bedroom]
+    TYPE --> BATHROOM[Bathroom]
+    TYPE --> KITCHEN[Kitchen]
+    TYPE --> OTHER[Other Types]
+    BEDROOM --> DETAILS[Room Details]
+    BATHROOM --> DETAILS
+    KITCHEN --> DETAILS
+    OTHER --> DETAILS
+    DETAILS --> DIMS[Dimensions - Metric & Imperial]
+    DIMS --> COVERING[Floor Covering]
+    COVERING --> FEAT[Room Features - JSONB Array]
+    FEAT --> SAVE[Save to property_rooms]
+    SAVE --> REFRESH[Refresh Room List]
+    LIST --> EDIT[Edit Room]
+    EDIT --> FORM
+    LIST --> DELETE[Delete Room]
+    DELETE --> CONFIRM{Confirm?}
+    CONFIRM -->|Yes| DEL_DB[Delete from property_rooms]
+    DEL_DB --> REFRESH
+```
+
+**Room Management Features:**
+- 9 room types: bedroom, bathroom, kitchen, living_room, dining_room, study, hallway, utility, other
+- Dual dimension tracking: meters and feet
+- Floor covering types: carpet, hardwood, tile, laminate, vinyl, other
+- Features stored as JSONB array
+- Room summary showing count by type
+- Expandable room cards with full details
+
+#### Property Detail Page Enhancement
+
+The PropertyDetailPage displays all enhanced property information in 8 collapsible sections:
+
+1. **Property Features** - Subtype, furnished, floor, heating, parking, garden, etc.
+2. **Location & Area** - Station, council tax, neighborhood, transport links
+3. **Financial Details** - Rent, deposit, terms, availability
+4. **Descriptions & Key Features** - Short/full descriptions, key features list
+5. **Media & Virtual Tours** - Floor plans, virtual tours, video tours
+6. **Enhanced Compliance** - Fire safety, legionella, HMO license
+7. **Management Details** - Management type, fees, keys, emergency contacts
+8. **Website Display Settings** - SEO, featured status, custom slug
+
+Each section uses ChevronDown/ChevronRight icons for expand/collapse toggle.
 
 ---
 

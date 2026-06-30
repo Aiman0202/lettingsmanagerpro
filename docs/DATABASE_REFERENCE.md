@@ -1,7 +1,7 @@
 # LettingsPro — Database Reference
 
 > Complete database schema reference with table definitions, column types, constraints, and relationships.  
-> Based on `supabase/migrations/001_initial_schema.sql`
+> Based on `supabase/migrations/001_initial_schema.sql` and `supabase/migrations/026_property_enhancements.sql`
 
 ---
 
@@ -12,6 +12,8 @@
 3. [Landlords](#landlords)
 4. [Tenants](#tenants)
 5. [Properties](#properties)
+   - 5.1 [Property Enhancement Columns (Migration 026)](#51-property-enhancement-columns-migration-026)
+   - 5.2 [property_rooms](#52-property_rooms)
 6. [Documents](#documents)
 7. [Tenancies](#tenancies)
 8. [Maintenance](#maintenance)
@@ -223,6 +225,132 @@
 | `updated_at` | TIMESTAMPTZ | — | `now()` |
 
 **status enum:** `available`, `let`, `unavailable`, `inactive`
+
+### 5.1 Property Enhancement Columns (Migration 026)
+
+The following columns were added to the `properties` table via `026_property_enhancements.sql`:
+
+#### Property Features
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| `property_subtype` | TEXT | — | — | Property subtype (e.g., Maisonette, Terraced) |
+| `furnished_status` | TEXT | CHECK IN ('furnished', 'part_furnished', 'unfurnished') | — | Furnishing status |
+| `floor_number` | INTEGER | — | — | Floor number within building |
+| `total_floors` | INTEGER | — | — | Total number of floors in building |
+| `lift_access` | BOOLEAN | — | FALSE | Whether lift is available |
+| `has_garden` | BOOLEAN | — | FALSE | Whether property has a garden |
+| `garden_type` | TEXT | CHECK IN ('front', 'back', 'communal', 'none') | — | Garden type |
+| `has_balcony` | BOOLEAN | — | FALSE | Whether property has a balcony |
+| `has_terrace` | BOOLEAN | — | FALSE | Whether property has a terrace |
+| `has_patio` | BOOLEAN | — | FALSE | Whether property has a patio |
+| `has_parking` | BOOLEAN | — | FALSE | Whether property has parking |
+| `parking_type` | TEXT | CHECK IN ('garage', 'driveway', 'street', 'allocated', 'none') | — | Parking type |
+| `parking_spaces` | INTEGER | — | 0 | Number of parking spaces |
+| `heating_type` | TEXT | CHECK IN ('gas_central', 'electric', 'underfloor', 'oil', 'none') | — | Heating type |
+| `hot_water_type` | TEXT | CHECK IN ('gas', 'electric', 'oil', 'none') | — | Hot water type |
+| `has_double_glazing` | BOOLEAN | — | FALSE | Whether property has double glazing |
+| `reception_rooms` | INTEGER | — | 1 | Number of reception rooms |
+| `kitchen_type` | TEXT | CHECK IN ('separate', 'open_plan', 'kitchenette', 'none') | — | Kitchen type |
+| `appliances_included` | JSONB | — | — | Array of appliances included |
+| `broadband_type` | TEXT | CHECK IN ('fibre', 'superfast', 'ultrafast', 'none') | — | Broadband type |
+| `has_smart_home` | BOOLEAN | — | FALSE | Whether smart home features present |
+| `smart_home_features` | TEXT | — | — | Description of smart home features |
+
+#### Location & Area
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| `nearest_station` | TEXT | — | — | Nearest train/tube station name |
+| `station_distance_minutes` | TEXT | — | — | Walking distance to station |
+| `nearby_schools` | JSONB | — | — | Array of nearby schools |
+| `nearby_amenities` | JSONB | — | — | Array of nearby amenities |
+| `neighborhood_description` | TEXT | — | — | Description of neighborhood |
+| `local_highlights` | TEXT | — | — | Local highlights |
+| `transport_links` | TEXT | — | — | Transport links description |
+
+#### Financial Details
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| `monthly_rent` | NUMERIC(10,2) | — | — | Monthly rent amount |
+| `deposit_amount` | NUMERIC(10,2) | — | — | Deposit amount |
+| `council_tax_band` | TEXT | — | — | Council tax band (A-H) |
+| `rent_includes` | JSONB | — | — | Array of items included in rent |
+| `minimum_term_months` | INTEGER | — | 12 | Minimum tenancy term in months |
+| `available_from` | DATE | — | — | Property availability date |
+
+#### Descriptions
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| `short_description` | TEXT | — | — | Short property description |
+| `full_description` | TEXT | — | — | Full property description |
+| `key_features` | JSONB | — | — | Array of key features |
+
+#### Media & Documents
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| `floor_plan_url` | TEXT | — | — | Floor plan URL |
+| `virtual_tour_url` | TEXT | — | — | Virtual tour URL |
+| `video_tour_url` | TEXT | — | — | Video tour URL |
+| `tour_360_url` | TEXT | — | — | 360° virtual tour URL |
+
+#### Compliance & Legal
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| `fire_safety_compliant` | BOOLEAN | — | FALSE | Fire safety compliance flag |
+| `legionella_assessed` | BOOLEAN | — | FALSE | Legionella assessment flag |
+| `legionella_assessment_date` | DATE | — | — | Date of legionella assessment |
+| `hmo_license_required` | BOOLEAN | — | FALSE | Whether HMO license is required |
+| `hmo_license_number` | TEXT | — | — | HMO license number |
+| `hmo_license_expiry` | DATE | — | — | HMO license expiry date |
+
+#### Management Details
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| `managed_by` | UUID | FK → users(id) | — | User managing the property |
+| `management_type` | TEXT | CHECK IN ('fully_managed', 'let_only', 'rent_collection') | — | Management type |
+| `management_fee_percentage` | NUMERIC(5,2) | — | — | Management fee percentage |
+| `keys_held` | BOOLEAN | — | FALSE | Whether keys are held |
+| `keys_count` | INTEGER | — | 0 | Number of keys held |
+| `alarm_code` | TEXT | — | — | Alarm code |
+| `emergency_contact_name` | TEXT | — | — | Emergency contact name |
+| `emergency_contact_phone` | TEXT | — | — | Emergency contact phone |
+
+#### Website Display Settings
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| `show_on_website` | BOOLEAN | — | TRUE | Whether to show on website |
+| `featured_property` | BOOLEAN | — | FALSE | Whether property is featured |
+| `custom_slug` | TEXT | UNIQUE | — | Custom URL slug |
+| `seo_title` | TEXT | — | — | SEO title |
+| `seo_meta_description` | TEXT | — | — | SEO meta description |
+| `seo_keywords` | JSONB | — | — | Array of SEO keywords |
+
+### 5.2 property_rooms
+
+| Column | Type | Constraints | Default |
+|--------|------|-------------|---------|
+| `id` | UUID | PK | `gen_random_uuid()` |
+| `property_id` | UUID | FK → properties(id), CASCADE | — |
+| `room_name` | TEXT | NOT NULL | — |
+| `room_type` | TEXT | NOT NULL, CHECK IN ('bedroom','bathroom','kitchen','living_room','dining_room','study','hallway','utility','other') | — |
+| `length_meters` | DECIMAL | — | — |
+| `width_meters` | DECIMAL | — | — |
+| `length_feet` | DECIMAL | — | — |
+| `width_feet` | DECIMAL | — | — |
+| `features` | JSONB | — | — |
+| `floor_covering` | TEXT | CHECK IN ('carpet','hardwood','tile','laminate','vinyl','other') | — |
+| `description` | TEXT | — | — |
+| `created_at` | TIMESTAMPTZ | — | `now()` |
+| `updated_at` | TIMESTAMPTZ | — | `now()` |
+
+**Indexes:** `property_id`, `room_type`
 
 ### `property_photos`
 
@@ -855,6 +983,7 @@ properties 1──N property_photos
 properties 1──N property_compliance
 properties 1──N property_home_safe_licences
 properties 1──N property_tickets
+properties 1──N property_rooms
 properties 1──N maintenance_requests
 properties 1──N expenses
 
@@ -877,7 +1006,18 @@ agreement_templates 1──N template_versions
 agreement_templates 1──N generated_agreements
 ```
 
-**Total tables:** 47  
-**Total indexes:** 40+  
+**Total tables:** 48  
+**Total indexes:** 45+  
 **RLS enabled:** All tables  
 **Storage buckets:** 7
+
+---
+
+## Migration History
+
+| # | File | Contents |
+|---|------|----------|
+| 001 | `001_initial_schema.sql` | Core schema: all tables, indexes, RLS policies, storage buckets, seed roles |
+| 002 | `002_seed_data.sql` | Default permission assignments, agreement clause library seeding |
+| 003–025 | Various | Incremental migrations: tenant documents, property photos, home safe licensing, tenancy lifecycle, agreement clauses, structured templates, property tickets, etc. |
+| 026 | `026_property_enhancements.sql` | Property enhancement: 50+ new columns on `properties` table, new `property_rooms` table, CHECK constraints, indexes |

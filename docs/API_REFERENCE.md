@@ -14,6 +14,8 @@
 6. [Context Providers](#6-context-providers)
 7. [Supabase Integration Patterns](#7-supabase-integration-patterns)
 8. [Storage Integration](#8-storage-integration)
+9. [Property Enhancement API](#9-property-enhancement-api)
+10. [Agreement Template Editor API](#10-agreement-template-editor-api)
 
 ---
 
@@ -43,7 +45,7 @@ Generates a tenancy agreement from a tenancy record.
 | Prefix | Fields |
 |--------|--------|
 | `tenancy.` | start_date, end_date, rent_amount, deposit_amount, deposit_scheme, reference_number |
-| `property.` | address, postcode, type, bedrooms, bathrooms, epc_rating, reference_number |
+| `property.` | address, postcode, type, bedrooms, bathrooms, epc_rating, reference_number, property_subtype, furnished_status, floor_number, heating_type, monthly_rent, council_tax_band |
 | `landlord.` | full_name, email, phone, address, company_name |
 | `tenant.` | full_name, email, phone, ni_number, dob |
 | `company.` | company_name, address, email, phone, vat_number, website |
@@ -390,6 +392,29 @@ Compiled compliance pack viewer for a property.
 | `ChecklistFormDialog` | — | Move-in/move-out checklists |
 | `TicketFormDialog` | — | Property ticket CRUD |
 | `HomeSafeLicenceDialog` | — | HomeSafe licence application |
+| `PropertyFormDialog` | — | Property CRUD with 50+ enhanced fields in 5 collapsible sections |
+
+### PropertyRooms Component
+
+Full CRUD interface for room management within a property.
+
+```tsx
+import PropertyRooms from '@/components/PropertyRooms'
+
+<PropertyRooms propertyId={property.id} />
+```
+
+**Features:**
+- Add/Edit/Delete rooms with 9 room types
+- Track dimensions in metric (meters) and imperial (feet) units
+- Track floor coverings (carpet, hardwood, tile, laminate, vinyl, other)
+- Add custom room features (JSONB array)
+- Room descriptions
+- Visual room type badges
+- Expandable room cards
+- Room summary showing count by type
+
+**Data flow:** Uses TanStack React Query with `queryKey: ['property-rooms', propertyId]` for caching and invalidation.
 
 ---
 
@@ -537,6 +562,159 @@ const { data } = supabase.storage
 const { data } = await supabase.storage
   .from('documents')
   .createSignedUrl(doc.storage_path, 3600) // 1 hour expiry
+```
+
+---
+
+## 9. Property Enhancement API
+
+### Property Query with Enhanced Fields
+
+```typescript
+const { data: property } = useQuery({
+  queryKey: ['property', id],
+  queryFn: async () => {
+    const { data } = await supabase
+      .from('properties')
+      .select('*, landlords(full_name)')
+      .eq('id', id)
+      .single()
+    return data
+  },
+})
+// property now includes 50+ enhanced fields:
+// property_subtype, furnished_status, floor_number, heating_type,
+// monthly_rent, council_tax_band, nearest_station, show_on_website, etc.
+```
+
+### Property Form Payload (50+ Fields)
+
+```typescript
+const payload = {
+  // Basic Info
+  address: form.address,
+  postcode: form.postcode,
+  type: form.type,
+  bedrooms: parseInt(form.bedrooms),
+  bathrooms: parseInt(form.bathrooms),
+  status: form.status,
+  // Property Features
+  furnished_status: form.furnished_status || null,
+  property_subtype: form.property_subtype || null,
+  floor_number: form.floor_number ? parseInt(form.floor_number) : null,
+  has_garden: form.has_garden,
+  garden_type: form.garden_type || null,
+  has_parking: form.has_parking,
+  parking_type: form.parking_type || null,
+  heating_type: form.heating_type || null,
+  // Financial
+  monthly_rent: form.monthly_rent ? parseFloat(form.monthly_rent) : null,
+  deposit_amount: form.deposit_amount ? parseFloat(form.deposit_amount) : null,
+  council_tax_band: form.council_tax_band || null,
+  minimum_term_months: parseInt(form.minimum_term_months),
+  // Website
+  show_on_website: form.show_on_website,
+  featured_property: form.featured_property,
+  seo_title: form.seo_title || null,
+  seo_meta_description: form.seo_meta_description || null,
+  // ... all 50+ fields
+}
+```
+
+### Property Rooms CRUD
+
+```typescript
+// Query rooms
+const { data: rooms } = useQuery({
+  queryKey: ['property-rooms', propertyId],
+  queryFn: async () => {
+    const { data } = await supabase
+      .from('property_rooms')
+      .select('*')
+      .eq('property_id', propertyId)
+      .order('created_at', { ascending: false })
+    return data
+  },
+})
+
+// Create room
+const { error } = await supabase
+  .from('property_rooms')
+  .insert({
+    property_id: propertyId,
+    room_name: 'Master Bedroom',
+    room_type: 'bedroom',
+    length_meters: 4.5,
+    width_meters: 3.2,
+    floor_covering: 'carpet',
+    features: ['en-suite', 'wardrobe'],
+  })
+
+// Update room
+const { error } = await supabase
+  .from('property_rooms')
+  .update({ room_name: 'Bedroom 1' })
+  .eq('id', roomId)
+
+// Delete room
+const { error } = await supabase
+  .from('property_rooms')
+  .delete()
+  .eq('id', roomId)
+```
+
+**Note:** When using `property_rooms` with TypeScript, cast to `any` if Supabase type inference fails:
+```typescript
+await (supabase.from('property_rooms') as any).insert(payload)
+```
+
+---
+
+## 10. Agreement Template Editor API
+
+### Template Editor Components
+
+The agreement template editor uses TipTap v3 with custom extensions:
+
+| Component | Purpose | Key Props |
+|-----------|---------|----------|
+| `TemplateEditorDialog` | Main dialog wrapper | `template`, `onSave`, `open`, `onOpenChange` |
+| `TemplateEditor` | Editor with side panel | `content`, `onChange`, `onInsertMergeField` |
+| `EditorToolbar` | Formatting toolbar | `editor` (TipTap instance), `onInsertPageBreak` |
+| `MergeFieldPanel` | Merge field insertion | `onInsert(fieldKey)` |
+| `ClauseLibraryPanel` | Clause library | `onInsertClause(clause)` |
+| `ConditionalBlocksPanel` | Conditional blocks | `onInsertBlock(block)` |
+
+### Merge Field System
+
+60+ merge fields organized by category:
+
+| Category | Example Fields | Token Format |
+|----------|---------------|---------------|
+| **Tenancy** | start_date, end_date, rent_amount, deposit_amount, reference_number | `{{tenancy.start_date}}` |
+| **Property** | address, postcode, type, bedrooms, property_subtype, furnished_status | `{{property.address}}` |
+| **Landlord** | full_name, email, phone, address, company_name | `{{landlord.full_name}}` |
+| **Tenant** | full_name, email, phone, ni_number, dob | `{{tenant.full_name}}` |
+| **Company** | company_name, address, email, phone, vat_number | `{{company.company_name}}` |
+| **Financial** | rent_amount, deposit_scheme, council_tax_band | `{{financial.rent_amount}}` |
+| **Inventory** | room-by-room inventory items | `{{inventory.kitchen}}` |
+| **HMO** | license_status, max_occupants | `{{hmo.license_status}}` |
+| **Guarantor** | name, address, contact | `{{guarantor.name}}` |
+| **Utilities** | meter_numbers, providers | `{{utilities.gas_meter}}` |
+| **Council** | council_name, address, license_type | `{{council.name}}` |
+
+### Layout Settings API
+
+Template layout settings are stored in `agreement_templates.content_json`:
+
+```typescript
+const layoutSettings = {
+  margins: { top: 20, right: 20, bottom: 20, left: 20 },
+  font: { family: 'Times New Roman', size: 12 },
+  colors: { text: '#000000', headings: '#000000' },
+  header: { enabled: true, content: '{{company.name}} - {{property.address}}' },
+  footer: { enabled: true, content: 'Page {page} of {pages}' },
+}
 ```
 
 ---

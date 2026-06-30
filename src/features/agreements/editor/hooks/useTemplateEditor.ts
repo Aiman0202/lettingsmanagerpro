@@ -7,16 +7,14 @@ import { TableRow } from '@tiptap/extension-table-row'
 import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { Color } from '@tiptap/extension-color'
-import { TextStyle } from '@tiptap/extension-text-style'
 import { FontFamily } from '@tiptap/extension-font-family'
-import { Highlight } from '@tiptap/extension-highlight'
 import { Underline } from '@tiptap/extension-underline'
 import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
-import { TextAlign } from '@tiptap/extension-text-align'
 import { HorizontalRule } from '@tiptap/extension-horizontal-rule'
 import { HardBreak } from '@tiptap/extension-hard-break'
 import { MergeFieldNode } from '../extensions/MergeFieldNode'
+import { ClassBasedTextStyle, ClassBasedTextAlign, ClassBasedHighlight } from '../extensions/ClassExtensions'
 import { preprocessTemplateHTML } from '../utils/preprocessTemplateHTML'
 
 /**
@@ -57,14 +55,14 @@ export function useTemplateEditor({
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
-      TextStyle,  // Required for color, font-size, font-family
+      ClassBasedTextStyle,  // CSS class-based (replaces default TextStyle)
       Color.configure({ types: ['textStyle'] }),
       FontFamily.configure({ types: ['textStyle'] }),
-      Highlight.configure({ multicolor: true }),
+      ClassBasedHighlight.configure({ multicolor: true }),
       Underline,
       Subscript,
       Superscript,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      ClassBasedTextAlign.configure({ types: ['heading', 'paragraph'] }),
       Placeholder.configure({ placeholder }),
       Table.configure({ resizable: true }),
       TableRow,

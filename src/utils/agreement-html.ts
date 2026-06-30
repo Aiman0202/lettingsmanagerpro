@@ -169,44 +169,7 @@ export function generateAgreementHTML(data: AgreementPrintData): string {
     </div>
   </div>
 
-  <!-- Agreement Body -->
-  <div class="agreement-body">
-    <div class="agreement-content">
-      ${agreement?.merged_html || '<p style="color: #999; text-align: center; padding: 40px;">No agreement content available.</p>'}
-    </div>
-    
-    <!-- Signatures in Agreement Body -->
-    ${signatures && signatures.length > 0 && layoutSettings.show_signatures_inline && !layoutSettings.show_signature_page ? `
-    <div class="inline-signatures">
-      <h2 class="section-title">Executed as a Deed</h2>
-      <p class="section-subtitle">
-        This agreement has been executed by the parties on the dates shown below
-      </p>
-      
-      ${signatures.filter((s: any) => s.signatory_type === 'tenant').map((sig: any) => `
-        <div class="signature-card">
-          <p class="signature-role">Tenant</p>
-          ${sig.signature_image_base64 ? `
-            <img src="${sig.signature_image_base64}" alt="Tenant Signature" class="signature-image" />
-          ` : '<p style="color: #999; font-style: italic;">No signature captured</p>'}
-          <p class="signature-info"><strong>Name:</strong> ${sig.signatory_name || '—'}</p>
-          <p class="signature-date"><strong>Date:</strong> ${fmtDate(sig.signed_at)}</p>
-        </div>
-      `).join('')}
-      
-      ${signatures.filter((s: any) => s.signatory_type === 'landlord' || s.signatory_type === 'agent').map((sig: any) => `
-        <div class="signature-card">
-          <p class="signature-role">Landlord / Agent</p>
-          ${sig.signature_image_base64 ? `
-            <img src="${sig.signature_image_base64}" alt="Landlord Signature" class="signature-image" />
-          ` : '<p style="color: #999; font-style: italic;">No signature captured</p>'}
-          <p class="signature-info"><strong>Name:</strong> ${sig.signatory_name || '—'}</p>
-          <p class="signature-date"><strong>Date:</strong> ${fmtDate(sig.signed_at)}</p>
-        </div>
-      `).join('')}
-    </div>
-    ` : ''}
-  </div>
+
 
   <!-- Signature Page -->
   ${layoutSettings.show_signature_page ? `

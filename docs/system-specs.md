@@ -118,10 +118,21 @@ src/
     NotificationsDropdown.tsx    — Notification bell with dropdown list
     OnboardingWizard.tsx         — Multi-step onboarding form
     PropertyDossierViewer.tsx    — Full property dossier PDF viewer
+    PropertyRooms.tsx            — Room management with CRUD, dimensions, floor coverings
     PropertyTimeline.tsx         — Activity timeline with ticket integration
     TemplateBuilder.tsx          — Split-pane structured agreement template editor
     TerminationFormDialog.tsx    — Tenancy termination form
     TicketFormDialog.tsx         — Property ticket creation form
+  features/
+    agreements/
+      editor/
+        components/
+          TemplateEditorDialog.tsx — Main editor dialog with tabs
+          TemplateEditor.tsx       — Editor with side panel
+          EditorToolbar.tsx         — Formatting toolbar (40+ buttons)
+          MergeFieldPanel.tsx       — Merge field insertion panel
+          ClauseLibraryPanel.tsx    — Clause library panel
+          ConditionalBlocksPanel.tsx — Conditional block insertion
     contextual/NextSteps.tsx     — Context-sensitive action suggestions
   pages/                         — Route-level page components
   utils/
@@ -146,6 +157,7 @@ src/
 properties ──< property_photos
 properties ──< property_compliance
 properties ──< property_tickets
+properties ──< property_rooms
 properties ──< maintenance_requests
 properties ── landlord (nullable FK)
 
@@ -196,7 +208,18 @@ users (extends auth.users) ── role-based access
 
 #### 4.2.2 Properties
 
-**`properties`** — Address, postcode, type (`flat`/`house`/etc.), bedrooms, bathrooms, status (`available`/`let`/`maintenance`), landlord FK, EPC rating.
+**`properties`** — Address, postcode, type (`flat`/`house`/etc.), bedrooms, bathrooms, status (`available`/`let`/`maintenance`), landlord FK, EPC rating. Enhanced with 50+ additional columns (Migration 026):
+
+- **Property Features:** `property_subtype`, `furnished_status`, `floor_number`, `total_floors`, `lift_access`, `has_garden`, `garden_type`, `has_balcony`, `has_terrace`, `has_patio`, `has_parking`, `parking_type`, `parking_spaces`, `heating_type`, `hot_water_type`, `has_double_glazing`, `reception_rooms`, `kitchen_type`, `appliances_included` (JSONB), `broadband_type`, `has_smart_home`, `smart_home_features`
+- **Location & Area:** `nearest_station`, `station_distance_minutes`, `nearby_schools` (JSONB), `nearby_amenities` (JSONB), `neighborhood_description`, `local_highlights`, `transport_links`
+- **Financial:** `monthly_rent`, `deposit_amount`, `council_tax_band`, `rent_includes` (JSONB), `minimum_term_months`, `available_from`
+- **Descriptions:** `short_description`, `full_description`, `key_features` (JSONB)
+- **Media:** `floor_plan_url`, `virtual_tour_url`, `video_tour_url`, `tour_360_url`
+- **Compliance:** `fire_safety_compliant`, `legionella_assessed`, `legionella_assessment_date`, `hmo_license_required`, `hmo_license_number`, `hmo_license_expiry`
+- **Management:** `managed_by` (FK → users), `management_type`, `management_fee_percentage`, `keys_held`, `keys_count`, `alarm_code`, `emergency_contact_name`, `emergency_contact_phone`
+- **Website:** `show_on_website`, `featured_property`, `custom_slug` (UNIQUE), `seo_title`, `seo_meta_description`, `seo_keywords` (JSONB)
+
+**`property_rooms`** — Detailed room information with 9 room types (bedroom, bathroom, kitchen, living_room, dining_room, study, hallway, utility, other), dimensions in metric and imperial, floor coverings, features (JSONB array), and descriptions.
 
 **`property_photos`** — Storage path, primary flag. Linked to property.
 
@@ -296,6 +319,8 @@ users (extends auth.users) ── role-based access
 | 008 | `008_agreement_clauses.sql` | agreement_clauses library with 20+ seeded UK AST clauses |
 | 009 | `009_structured_templates.sql` | template_sections, template_section_clauses, template_versions |
 | 010 | `010_property_tickets.sql` | property_tickets table with type/subtype/priority/status |
+| 011–025 | Various | Additional incremental migrations |
+| 026 | `026_property_enhancements.sql` | Property enhancement: 50+ new columns on `properties`, new `property_rooms` table, CHECK constraints, indexes |
 
 ### 4.4 Supabase Storage Buckets
 
@@ -329,20 +354,38 @@ Summary cards with counts and quick links:
 
 **Routes:** `/properties`, `/properties/:id`  
 **Pages:** `PropertiesPage.tsx`, `PropertyDetailPage.tsx`  
-**Key Components:** `PropertyTimeline.tsx`, `PropertyDossierViewer.tsx`, `TicketFormDialog.tsx`, `ChecklistFormDialog.tsx`, `HomeSafeLicenceDialog.tsx`
+**Key Components:** `PropertyTimeline.tsx`, `PropertyDossierViewer.tsx`, `PropertyRooms.tsx`, `TicketFormDialog.tsx`, `ChecklistFormDialog.tsx`, `HomeSafeLicenceDialog.tsx`
 
 **List View:**
 - Filterable property table (status, type, search)
-- Add new property
+- Add new property with 50+ enhanced fields in 5 collapsible sections
 - Quick status indicators
 
 **Detail View Tabs:**
-- **Overview** — Address, type, bedrooms, landlord link, status, photos
+- **Overview** — Address, type, bedrooms, landlord link, status, photos, plus 8 collapsible sections showing all enhanced property information
 - **Tenancies** — Active and historical tenancies for this property
 - **Maintenance** — Maintenance requests and jobs
 - **Compliance** — Certificates with expiry tracking and status badges
 - **Tickets** — Property tickets (enquiries, notices, issues, action items)
 - **Timeline** — Unified activity feed showing inspections, tickets, compliance changes, maintenance updates with filter chips
+
+**Property Enhancement Sections (Detail Page):**
+1. Property Features — Subtype, furnished, floor, heating, parking, garden, etc.
+2. Location & Area — Station, council tax, neighborhood, transport links
+3. Financial Details — Rent, deposit, terms, availability
+4. Descriptions & Key Features — Short/full descriptions, key features list
+5. Media & Virtual Tours — Floor plans, virtual tours, video tours
+6. Enhanced Compliance — Fire safety, legionella, HMO license
+7. Management Details — Management type, fees, keys, emergency contacts
+8. Website Display Settings — SEO, featured status, custom slug
+
+**Property Rooms Component:**
+- Full CRUD interface for room management
+- 9 room types with visual badges
+- Dimensions in metric and imperial units
+- Floor covering tracking
+- Room features (JSONB array)
+- Room summary showing count by type
 
 **Actions:**
 - Upload/manage property photos (primary photo flag)
@@ -350,6 +393,7 @@ Summary cards with counts and quick links:
 - Add compliance certificates
 - Create tickets inline from timeline
 - View property dossier (aggregated PDF)
+- Add/edit/delete property rooms with dimensions and features
 
 ### 5.3 Landlords
 
@@ -599,7 +643,25 @@ File operations (upload, download via signed URL, delete) use the Supabase Stora
 
 ### 8.3 TipTap Rich Text Editor
 
-Used for legacy agreement template editing (JSON-based). The structured template system (`TemplateBuilder`) uses HTML-based clauses with merge fields instead of the TipTap editor directly.
+Used for agreement template editing with a full WYSIWYG experience. The editor is built on TipTap v3 with custom extensions:
+
+- **MergeFieldNode** — Custom TipTap node for rendering `{{token}}` merge fields inline in the editor
+- **PageBreak** — Custom TipTap extension for inserting page breaks
+- **StarterKit** — Core formatting extensions (bold, italic, underline, headings, lists, tables, etc.)
+
+**Editor Architecture:**
+| Component | Purpose |
+|-----------|--------|
+| `TemplateEditorDialog` | Main dialog with Editor and Layout Settings tabs |
+| `TemplateEditor` | Editor wrapper with 3-tab side panel (Fields, Clauses, Logic) |
+| `EditorToolbar` | 3-row formatting toolbar with 40+ buttons |
+| `MergeFieldPanel` | Searchable merge field insertion with categorized fields |
+| `ClauseLibraryPanel` | Clause library with 18 pre-seeded UK tenancy clauses |
+| `ConditionalBlocksPanel` | Conditional content block insertion |
+
+**Merge Field System:**
+
+60+ merge fields available for dynamic content in agreements (see Section 8.5 for full list).
 
 ### 8.4 Signature Capture
 
@@ -611,16 +673,21 @@ Signatures are stored as base64-encoded PNG images in the `agreement_signatures`
 
 ### 8.5 Merge Field System
 
-30+ merge fields available for dynamic content in agreements:
+60+ merge fields available for dynamic content in agreements:
 
 | Category | Fields |
 |---|---|
-| Tenancy | `{{tenancy_id}}`, `{{start_date}}`, `{{end_date}}`, `{{rent_amount}}`, `{{rent_frequency}}`, `{{deposit_amount}}`, `{{deposit_scheme}}`, `{{notice_period_days}}`, `{{today_date}}` |
-| Property | `{{property_address}}`, `{{property_postcode}}`, `{{property_type}}`, `{{bedrooms}}`, `{{bathrooms}}`, `{{epc_rating}}`, `{{furnished_status}}` |
-| Landlord | `{{landlord_name}}`, `{{landlord_address}}`, `{{landlord_email}}`, `{{landlord_phone}}` |
-| Tenant | `{{tenant_name}}`, `{{tenant_address}}`, `{{tenant_ni_number}}`, `{{tenant_dob}}`, `{{tenant_emergency_contact}}` |
-| Company | `{{agency_name}}`, `{{agency_address}}`, `{{agency_phone}}`, `{{agency_email}}` |
-| Deposit Scheme | `{{scheme_name}}`, `{{scheme_address}}` |
+| **Tenancy** | `{{tenancy.start_date}}`, `{{tenancy.end_date}}`, `{{tenancy.rent_amount}}`, `{{tenancy.rent_frequency}}`, `{{tenancy.deposit_amount}}`, `{{tenancy.deposit_scheme}}`, `{{tenancy.notice_period_days}}`, `{{tenancy.reference_number}}`, `{{tenancy.minimum_term}}`, `{{today_date}}` |
+| **Property** | `{{property.address}}`, `{{property.postcode}}`, `{{property.type}}`, `{{property.bedrooms}}`, `{{property.bathrooms}}`, `{{property.epc_rating}}`, `{{property.furnished_status}}`, `{{property.property_subtype}}`, `{{property.heating_type}}`, `{{property.council_tax_band}}`, `{{property.monthly_rent}}` |
+| **Landlord** | `{{landlord.full_name}}`, `{{landlord.address}}`, `{{landlord.email}}`, `{{landlord.phone}}`, `{{landlord.company_name}}` |
+| **Tenant** | `{{tenant.full_name}}`, `{{tenant.address}}`, `{{tenant.ni_number}}`, `{{tenant.dob}}`, `{{tenant.emergency_contact}}`, `{{tenant.phone}}`, `{{tenant.email}}` |
+| **Company** | `{{company.company_name}}`, `{{company.address}}`, `{{company.phone}}`, `{{company.email}}`, `{{company.vat_number}}`, `{{company.website}}` |
+| **Deposit Scheme** | `{{deposit.scheme_name}}`, `{{deposit.scheme_address}}`, `{{deposit.scheme_id}}` |
+| **Inventory** | `{{inventory.room_name}}`, room-by-room inventory items |
+| **HMO** | `{{hmo.license_status}}`, `{{hmo.license_number}}`, `{{hmo.max_occupants}}` |
+| **Guarantor** | `{{guarantor.name}}`, `{{guarantor.address}}`, `{{guarantor.contact}}` |
+| **Utilities** | `{{utilities.gas_meter}}`, `{{utilities.electric_meter}}`, `{{utilities.water_meter}}`, `{{utilities.providers}}` |
+| **Council** | `{{council.name}}`, `{{council.address}}`, `{{council.license_type}}` |
 
 Fields support format hints (`date`, `currency`, `number`, `text`) for proper rendering.
 
