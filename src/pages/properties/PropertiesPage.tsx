@@ -514,6 +514,7 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
     
     try {
       const payload = {
+        // Basic Info
         address: form.address,
         postcode: form.postcode,
         type: form.type,
@@ -525,6 +526,61 @@ function PropertyFormDialog({ open, onClose, editId, onSaved }: {
         landlord_id: form.landlord_id || null,
         utility_note: form.utility_note || null,
         inventory_note: form.inventory_note || null,
+        // Property Features
+        furnished_status: form.furnished_status || null,
+        property_subtype: form.property_subtype || null,
+        floor_number: form.floor_number ? parseInt(form.floor_number) : null,
+        total_floors: form.total_floors ? parseInt(form.total_floors) : null,
+        lift_access: form.lift_access,
+        has_garden: form.has_garden,
+        garden_type: form.garden_type || null,
+        has_balcony: form.has_balcony,
+        has_terrace: form.has_terrace,
+        has_patio: form.has_patio,
+        has_parking: form.has_parking,
+        parking_type: form.parking_type || null,
+        parking_spaces: form.parking_spaces || 0,
+        heating_type: form.heating_type || null,
+        hot_water_type: form.hot_water_type || null,
+        has_double_glazing: form.has_double_glazing,
+        reception_rooms: form.reception_rooms || 1,
+        kitchen_type: form.kitchen_type || null,
+        broadband_type: form.broadband_type || null,
+        appliances_included: form.appliances_included || [],
+        has_smart_home: form.has_smart_home,
+        smart_home_features: form.smart_home_features || null,
+        // Location
+        nearest_station: form.nearest_station || null,
+        station_distance_minutes: form.station_distance_minutes ? parseInt(form.station_distance_minutes) : null,
+        council_tax_band: form.council_tax_band || null,
+        // Financial
+        monthly_rent: form.monthly_rent ? parseFloat(form.monthly_rent) : null,
+        deposit_amount: form.deposit_amount ? parseFloat(form.deposit_amount) : null,
+        minimum_term_months: form.minimum_term_months || 12,
+        available_from: form.available_from || null,
+        // Descriptions
+        short_description: form.short_description || null,
+        key_features: form.key_features || [],
+        // Media
+        floor_plan_url: form.floor_plan_url || null,
+        virtual_tour_url: form.virtual_tour_url || null,
+        video_tour_url: form.video_tour_url || null,
+        // Compliance
+        hmo_license_required: form.hmo_license_required,
+        hmo_license_number: form.hmo_license_number || null,
+        hmo_license_expiry: form.hmo_license_expiry || null,
+        // Management
+        management_type: form.management_type || null,
+        management_fee_percentage: form.management_fee_percentage ? parseFloat(form.management_fee_percentage) : null,
+        keys_held: form.keys_held,
+        keys_count: form.keys_count || 0,
+        emergency_contact_name: form.emergency_contact_name || null,
+        emergency_contact_phone: form.emergency_contact_phone || null,
+        // Website
+        show_on_website: form.show_on_website,
+        featured_property: form.featured_property,
+        seo_title: form.seo_title || null,
+        seo_meta_description: form.seo_meta_description || null,
       }
 
       if (editId) {
