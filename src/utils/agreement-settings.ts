@@ -45,6 +45,10 @@ export interface AgreementLayoutSettings {
   footer_text: string
   show_page_numbers: boolean
   page_number_position: string
+
+  // Watermark
+  show_watermark_logo: boolean
+  watermark_opacity: number
 }
 
 export function getDefaultSettings(): AgreementLayoutSettings {
@@ -81,6 +85,10 @@ export function getDefaultSettings(): AgreementLayoutSettings {
     footer_text: 'This agreement is generated on {date}',
     show_page_numbers: true,
     page_number_position: 'bottom-center',
+
+    // Watermark
+    show_watermark_logo: false,
+    watermark_opacity: 0.08,
   }
 }
 
@@ -101,7 +109,10 @@ export async function loadAgreementSettings(): Promise<AgreementLayoutSettings> 
       return getDefaultSettings()
     }
     
-    return data as AgreementLayoutSettings
+    // Merge with defaults to ensure new fields always have values
+    const defaults = getDefaultSettings()
+    const loaded = data as Partial<AgreementLayoutSettings>
+    return { ...defaults, ...loaded } as AgreementLayoutSettings
   } catch (err) {
     console.error('Error loading agreement settings:', err)
     return getDefaultSettings()

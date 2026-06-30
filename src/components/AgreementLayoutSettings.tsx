@@ -467,6 +467,39 @@ export default function AgreementLayoutSettings() {
             )}
           </CardContent>
         </Card>
+
+        {/* Watermark */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Watermark</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                id="show_watermark_logo"
+                checked={form.show_watermark_logo ?? false}
+                onChange={(e) => setForm({ ...form, show_watermark_logo: e.target.checked })}
+                className="h-4 w-4"
+              />
+              <Label htmlFor="show_watermark_logo">Show company logo as background watermark</Label>
+            </div>
+            {form.show_watermark_logo && (
+              <div className="space-y-1.5">
+                <Label>Watermark Opacity ({Math.round((form.watermark_opacity ?? 0.08) * 100)}%)</Label>
+                <input 
+                  type="range" 
+                  min="3" 
+                  max="30" 
+                  value={Math.round((form.watermark_opacity ?? 0.08) * 100)}
+                  onChange={(e) => setForm({ ...form, watermark_opacity: parseInt(e.target.value) / 100 })}
+                  className="w-full"
+                />
+                <p className="text-xs text-gray-500">Lower = more subtle. Recommended: 5–10%</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

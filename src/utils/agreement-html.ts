@@ -98,6 +98,32 @@ export function generateAgreementHTML(data: AgreementPrintData): string {
 
   const footerText = layoutSettings.footer_text.replace('{date}', generatedDate)
 
+  // Watermark CSS — position:fixed repeats on every printed page
+  const watermarkCSS = layoutSettings.show_watermark_logo && companyLogo ? `
+    .page-watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60%;
+      max-width: 400px;
+      opacity: ${layoutSettings.watermark_opacity || 0.08};
+      z-index: -1;
+      pointer-events: none;
+      page-break-after: always;
+    }
+    .page-watermark img {
+      width: 100%;
+      height: auto;
+    }
+  ` : ''
+
+  const watermarkHTML = layoutSettings.show_watermark_logo && companyLogo ? `
+  <div class="page-watermark">
+    <img src="${companyLogo}" alt="" />
+  </div>
+` : ''
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -105,9 +131,11 @@ export function generateAgreementHTML(data: AgreementPrintData): string {
 <title>Tenancy Agreement — ${fullAddress}</title>
 <style>
   ${settingsCSS}
+  ${watermarkCSS}
 </style>
 </head>
 <body>
+  ${watermarkHTML}
   <!-- Close Button (Screen Only) -->
   <button class="close-button" onclick="window.close()" title="Close and return to app">
     ✕ Close Window
