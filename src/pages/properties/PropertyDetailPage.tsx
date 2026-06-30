@@ -20,6 +20,7 @@ import ViewingFormDialog from '@/components/ViewingFormDialog'
 import ViewingFeedbackDialog from '@/components/ViewingFeedbackDialog'
 import PhotoLightbox from '@/components/PhotoLightbox'
 import InventoryItemsTab from '@/components/InventoryItemsTab'
+import PropertyRooms from '@/components/PropertyRooms'
 import { compressImage, generatePhotoFilename, isJPEG, formatFileSize } from '@/utils/image-compression'
 import { logAudit } from '@/lib/audit'
 import { useToast } from '@/contexts/ToastContext'
@@ -476,6 +477,9 @@ export default function PropertyDetailPage() {
             <InventoryItemsTab propertyId={id!} />
           </CardContent>
         </Card>
+
+        {/* Property Rooms */}
+        <PropertyRooms propertyId={id!} />
       </div>
 
       {/* Tenancies */}
