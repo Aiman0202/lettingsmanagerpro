@@ -1,12 +1,23 @@
--- ============================================================
--- LettingsPro — Consolidated Database Schema
--- Single migration replacing 001–021
--- Drop-then-create pattern for clean slate
+﻿-- ============================================================
+-- LettingsPro â€” Consolidated Database Schema
+-- Single idempotent migration (drop-then-create)
 -- ============================================================
 
 -- ============================================================
 -- SECTION 1: DROP ALL TABLES (cascade handles dependencies)
 -- ============================================================
+DROP TABLE IF EXISTS sticky_notes CASCADE;
+DROP TABLE IF EXISTS tenant_statements CASCADE;
+DROP TABLE IF EXISTS council_required_documents CASCADE;
+DROP TABLE IF EXISTS local_authorities CASCADE;
+DROP TABLE IF EXISTS property_inventory_items CASCADE;
+DROP TABLE IF EXISTS property_key_inventory CASCADE;
+DROP TABLE IF EXISTS property_meter_readings CASCADE;
+DROP TABLE IF EXISTS property_readiness_checklist CASCADE;
+DROP TABLE IF EXISTS agreement_layout_settings CASCADE;
+DROP TABLE IF EXISTS property_rooms CASCADE;
+DROP TABLE IF EXISTS property_viewings CASCADE;
+DROP TABLE IF EXISTS tenant_communications CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS audit_log CASCADE;
 DROP TABLE IF EXISTS agreement_defaults CASCADE;
@@ -55,6 +66,9 @@ DROP TABLE IF EXISTS permissions CASCADE;
 DROP TABLE IF EXISTS roles CASCADE;
 
 DROP FUNCTION IF EXISTS generate_next_reference(TEXT, TEXT);
+DROP FUNCTION IF EXISTS generate_receipt_number();
+DROP FUNCTION IF EXISTS update_updated_at_column();
+DROP FUNCTION IF EXISTS public.handle_new_user();
 
 -- ============================================================
 -- SECTION 2: EXTENSIONS
@@ -85,6 +99,7 @@ CREATE TABLE permissions (
 CREATE TABLE users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
+  email TEXT,
   role TEXT NOT NULL DEFAULT 'negotiator',
   role_id UUID REFERENCES roles(id) ON DELETE SET NULL,
   is_active BOOLEAN DEFAULT TRUE,
@@ -103,6 +118,7 @@ CREATE TABLE company_settings (
   address TEXT,
   email TEXT,
   phone TEXT,
+  emergency_phone TEXT,
   bank_details TEXT,
   vat_number TEXT,
   default_fee_percentage NUMERIC(5,2) DEFAULT 10.00,
@@ -113,6 +129,13 @@ CREATE TABLE company_settings (
   city TEXT,
   postcode TEXT,
   company_description TEXT,
+  insurance_provider TEXT,
+  insurance_policy_number TEXT,
+  insurance_expiry_date DATE,
+  deposit_scheme_name TEXT,
+  deposit_scheme_address TEXT,
+  late_fee_policy TEXT,
+  payment_terms TEXT,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -211,7 +234,7 @@ CREATE TABLE tenant_family_members (
 );
 
 -- ============================================================
--- SECTION 7: PROPERTIES
+-- SECTION 7: PROPERTIES (with all enhancements)
 -- ============================================================
 
 CREATE TABLE properties (
@@ -220,13 +243,88 @@ CREATE TABLE properties (
   address TEXT NOT NULL,
   postcode TEXT NOT NULL,
   type TEXT NOT NULL DEFAULT 'flat',
+  property_subtype TEXT,
   bedrooms INTEGER,
   bathrooms INTEGER,
   status TEXT NOT NULL DEFAULT 'available'
     CHECK (status IN ('available','let','unavailable','inactive')),
+  furnished_status TEXT DEFAULT 'unfurnished',
   landlord_id UUID REFERENCES landlords(id) ON DELETE SET NULL,
   description TEXT,
+  short_description TEXT,
+  full_description TEXT,
+  key_features JSONB DEFAULT '[]'::jsonb,
   epc_rating TEXT,
+  utility_note TEXT,
+  inventory_note TEXT,
+  -- Features: Outdoor
+  has_garden BOOLEAN DEFAULT FALSE,
+  garden_type TEXT CHECK (garden_type IN ('front','back','communal','none',NULL)),
+  has_balcony BOOLEAN DEFAULT FALSE,
+  has_terrace BOOLEAN DEFAULT FALSE,
+  has_patio BOOLEAN DEFAULT FALSE,
+  -- Features: Parking
+  has_parking BOOLEAN DEFAULT FALSE,
+  parking_type TEXT CHECK (parking_type IN ('garage','driveway','street','allocated','none',NULL)),
+  parking_spaces INTEGER DEFAULT 0,
+  -- Features: Heating & Energy
+  heating_type TEXT CHECK (heating_type IN ('gas_central','electric','underfloor','oil','none',NULL)),
+  hot_water_type TEXT CHECK (hot_water_type IN ('gas','electric','solar','none',NULL)),
+  has_double_glazing BOOLEAN DEFAULT FALSE,
+  -- Features: Interior
+  reception_rooms INTEGER DEFAULT 1,
+  kitchen_type TEXT CHECK (kitchen_type IN ('separate','open_plan','kitchen_diner',NULL)),
+  appliances_included JSONB DEFAULT '[]'::jsonb,
+  broadband_type TEXT CHECK (broadband_type IN ('fibre','standard','ultrafast','none',NULL)),
+  has_smart_home BOOLEAN DEFAULT FALSE,
+  smart_home_features TEXT,
+  -- Features: Building
+  floor_number INTEGER,
+  total_floors INTEGER,
+  lift_access BOOLEAN DEFAULT FALSE,
+  -- Location & Area
+  nearest_station TEXT,
+  station_distance_minutes INTEGER,
+  nearby_schools JSONB DEFAULT '[]'::jsonb,
+  nearby_amenities JSONB DEFAULT '[]'::jsonb,
+  neighborhood_description TEXT,
+  local_highlights TEXT,
+  transport_links TEXT,
+  -- Financial
+  monthly_rent NUMERIC(10,2),
+  deposit_amount NUMERIC(10,2),
+  council_tax_band TEXT CHECK (council_tax_band IN ('A','B','C','D','E','F','G','H',NULL)),
+  rent_includes JSONB DEFAULT '[]'::jsonb,
+  minimum_term_months INTEGER DEFAULT 12,
+  available_from DATE,
+  -- Media
+  floor_plan_url TEXT,
+  virtual_tour_url TEXT,
+  video_tour_url TEXT,
+  tour_360_url TEXT,
+  -- Compliance & Legal
+  fire_safety_compliant BOOLEAN,
+  legionella_assessed BOOLEAN,
+  legionella_assessment_date DATE,
+  hmo_license_required BOOLEAN DEFAULT FALSE,
+  hmo_license_number TEXT,
+  hmo_license_expiry DATE,
+  -- Management
+  managed_by UUID REFERENCES users(id),
+  management_type TEXT CHECK (management_type IN ('fully_managed','let_only','tenant_find',NULL)),
+  management_fee_percentage DECIMAL(5,2),
+  keys_held BOOLEAN DEFAULT FALSE,
+  keys_count INTEGER DEFAULT 0,
+  alarm_code TEXT,
+  emergency_contact_name TEXT,
+  emergency_contact_phone TEXT,
+  -- Website Display
+  show_on_website BOOLEAN DEFAULT TRUE,
+  featured_property BOOLEAN DEFAULT FALSE,
+  custom_slug TEXT UNIQUE,
+  seo_title TEXT,
+  seo_meta_description TEXT,
+  seo_keywords JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -239,11 +337,24 @@ CREATE TABLE property_photos (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- NOTE: documents table is defined in Section 8 so property_compliance
--- and property_home_safe_licences can FK to it; they follow below.
+CREATE TABLE property_rooms (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
+  room_name TEXT NOT NULL,
+  room_type TEXT NOT NULL CHECK (room_type IN ('bedroom','bathroom','kitchen','living_room','dining_room','study','hallway','utility','other')),
+  length_meters DECIMAL(5,2),
+  width_meters DECIMAL(5,2),
+  length_feet DECIMAL(5,2),
+  width_feet DECIMAL(5,2),
+  features JSONB DEFAULT '[]'::jsonb,
+  floor_covering TEXT CHECK (floor_covering IN ('carpet','hardwood','tile','laminate','vinyl','other',NULL)),
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
 -- ============================================================
--- SECTION 8: DOCUMENTS
+-- SECTION 8: DOCUMENTS & COMPLIANCE
 -- ============================================================
 
 CREATE TABLE documents (
@@ -258,7 +369,6 @@ CREATE TABLE documents (
   size_bytes BIGINT
 );
 
--- Property compliance (FK to both properties and documents)
 CREATE TABLE property_compliance (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
@@ -320,11 +430,13 @@ CREATE TABLE tenancies (
   reference_number TEXT NOT NULL UNIQUE,
   property_id UUID REFERENCES properties(id) ON DELETE SET NULL,
   landlord_id UUID REFERENCES landlords(id) ON DELETE SET NULL,
+  council_id UUID,
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
   rent_amount NUMERIC(10,2) NOT NULL,
   deposit_amount NUMERIC(10,2) DEFAULT 0,
   deposit_scheme TEXT,
+  description TEXT,
   status TEXT NOT NULL DEFAULT 'draft'
     CHECK (status IN ('draft','active','ending_soon','expired','ended','terminated')),
   agreement_template_id UUID,
@@ -332,7 +444,6 @@ CREATE TABLE tenancies (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Only one active/ending_soon tenancy per property
 CREATE UNIQUE INDEX uq_property_active_tenancy
   ON tenancies (property_id)
   WHERE status IN ('active', 'ending_soon');
@@ -350,7 +461,16 @@ CREATE TABLE tenancy_renewals (
   old_end_date DATE NOT NULL,
   new_end_date DATE NOT NULL,
   new_rent NUMERIC(10,2) NOT NULL,
+  new_rent_amount NUMERIC(10,2),
+  old_rent NUMERIC(10,2),
+  reason TEXT,
   notes TEXT,
+  renewal_type TEXT DEFAULT 'extension' CHECK (renewal_type IN ('extension','new_agreement')),
+  previous_agreement_id UUID,
+  new_agreement_id UUID,
+  amendments_summary JSONB,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending','signed','completed')),
+  created_by UUID REFERENCES auth.users(id),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -488,7 +608,44 @@ CREATE TABLE arrears_actions (
 );
 
 -- ============================================================
--- SECTION 10: MAINTENANCE
+-- SECTION 10: VIEWINGS & COMMUNICATIONS
+-- ============================================================
+
+CREATE TABLE property_viewings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  prospect_name TEXT NOT NULL,
+  prospect_email TEXT,
+  prospect_phone TEXT,
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  duration_minutes INTEGER DEFAULT 30,
+  status TEXT NOT NULL DEFAULT 'scheduled'
+    CHECK (status IN ('scheduled','completed','cancelled','no_show','converted')),
+  feedback TEXT,
+  rating TEXT CHECK (rating IN ('interested','very_interested','not_interested','maybe')),
+  notes TEXT,
+  source TEXT DEFAULT 'walk_in'
+    CHECK (source IN ('walk_in','rightmove','zoopla','openrent','referral','website','other')),
+  right_to_rent_checked BOOLEAN DEFAULT FALSE,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE tenant_communications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('call','email','letter','sms','visit','other')),
+  direction TEXT NOT NULL DEFAULT 'outbound' CHECK (direction IN ('inbound','outbound')),
+  subject TEXT,
+  body TEXT,
+  logged_at TIMESTAMPTZ DEFAULT now(),
+  logged_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ============================================================
+-- SECTION 11: MAINTENANCE
 -- ============================================================
 
 CREATE TABLE maintenance_requests (
@@ -528,7 +685,7 @@ CREATE TABLE maintenance_jobs (
 );
 
 -- ============================================================
--- SECTION 11: FINANCE
+-- SECTION 12: FINANCE
 -- ============================================================
 
 CREATE TABLE rent_transactions (
@@ -539,6 +696,11 @@ CREATE TABLE rent_transactions (
   paid_date DATE,
   payment_method TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','overdue','partial')),
+  receipt_number TEXT,
+  period_start DATE,
+  period_end DATE,
+  amount_paid NUMERIC(10,2),
+  balance_after NUMERIC(10,2) DEFAULT 0,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -577,8 +739,22 @@ CREATE TABLE agency_fees (
   description TEXT
 );
 
+CREATE TABLE tenant_statements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenancy_id UUID NOT NULL REFERENCES tenancies(id) ON DELETE CASCADE,
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  total_rent DECIMAL(10,2) NOT NULL DEFAULT 0,
+  total_paid DECIMAL(10,2) NOT NULL DEFAULT 0,
+  balance DECIMAL(10,2) NOT NULL DEFAULT 0,
+  transaction_count INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- ============================================================
--- SECTION 12: AGREEMENTS
+-- SECTION 13: AGREEMENTS
 -- ============================================================
 
 CREATE TABLE agreement_templates (
@@ -645,6 +821,9 @@ CREATE TABLE generated_agreements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenancy_id UUID REFERENCES tenancies(id) ON DELETE CASCADE,
   template_id UUID REFERENCES agreement_templates(id) ON DELETE SET NULL,
+  renewal_id UUID,
+  is_renewal BOOLEAN DEFAULT FALSE,
+  previous_agreement_id UUID REFERENCES generated_agreements(id),
   merged_content_json JSONB NOT NULL DEFAULT '{}',
   merged_html TEXT,
   pdf_storage_path TEXT,
@@ -654,9 +833,15 @@ CREATE TABLE generated_agreements (
   council_submission_status TEXT DEFAULT 'not_submitted'
     CHECK (council_submission_status IN ('not_submitted','ready_to_submit','submitted','accepted','rejected')),
   council_reference TEXT,
+  council_pack_generated_at TIMESTAMPTZ,
+  council_pack_html TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Add FK for renewal_id after generated_agreements exists
+ALTER TABLE generated_agreements ADD CONSTRAINT fk_generated_agreements_renewal
+  FOREIGN KEY (renewal_id) REFERENCES tenancy_renewals(id);
 
 CREATE TABLE agreement_signatures (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -667,6 +852,10 @@ CREATE TABLE agreement_signatures (
   signature_image_base64 TEXT NOT NULL,
   capture_method TEXT NOT NULL CHECK (capture_method IN ('topaz','touch')),
   ip_address TEXT,
+  witness_name TEXT,
+  witness_address TEXT,
+  witness_occupation TEXT,
+  witness_signature_base64 TEXT,
   signed_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   signed_at TIMESTAMPTZ DEFAULT now()
 );
@@ -693,9 +882,164 @@ CREATE TABLE agreement_defaults (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE agreement_layout_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key TEXT UNIQUE NOT NULL DEFAULT 'default',
+  -- Page Setup
+  page_size TEXT DEFAULT 'A4',
+  page_orientation TEXT DEFAULT 'portrait',
+  margin_top TEXT DEFAULT '20mm',
+  margin_right TEXT DEFAULT '15mm',
+  margin_bottom TEXT DEFAULT '25mm',
+  margin_left TEXT DEFAULT '15mm',
+  -- Typography
+  font_family TEXT DEFAULT 'Times New Roman',
+  base_font_size TEXT DEFAULT '11pt',
+  line_height NUMERIC DEFAULT 1.8,
+  heading1_size TEXT DEFAULT '28pt',
+  heading2_size TEXT DEFAULT '16pt',
+  heading3_size TEXT DEFAULT '13pt',
+  -- Colors
+  heading_color TEXT DEFAULT '#1a1a1a',
+  text_color TEXT DEFAULT '#000000',
+  border_color TEXT DEFAULT '#333333',
+  -- Cover Page
+  logo_max_height TEXT DEFAULT '80px',
+  logo_max_width TEXT DEFAULT '250px',
+  cover_title_size TEXT DEFAULT '28pt',
+  cover_subtitle_size TEXT DEFAULT '14pt',
+  show_cover_page BOOLEAN DEFAULT true,
+  -- Signatures
+  signature_image_height TEXT DEFAULT '60px',
+  signature_block_spacing TEXT DEFAULT '40px',
+  show_signatures_inline BOOLEAN DEFAULT true,
+  show_signature_page BOOLEAN DEFAULT true,
+  -- Footer
+  footer_text TEXT DEFAULT 'This agreement is generated on {date}',
+  show_page_numbers BOOLEAN DEFAULT true,
+  page_number_position TEXT DEFAULT 'bottom-center',
+  -- Watermark
+  show_watermark_logo BOOLEAN DEFAULT false,
+  watermark_opacity NUMERIC DEFAULT 0.08,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- ============================================================
--- SECTION 13: SYSTEM
+-- SECTION 14: INVENTORY & READINESS
 -- ============================================================
+
+CREATE TABLE property_inventory_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  category TEXT NOT NULL CHECK (category IN ('furniture','appliance','fixture','other')),
+  name TEXT NOT NULL,
+  description TEXT,
+  quantity INTEGER DEFAULT 1,
+  condition TEXT NOT NULL CHECK (condition IN ('new','good','fair','poor','damaged')),
+  notes TEXT,
+  photos JSONB DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE property_key_inventory (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  key_type TEXT NOT NULL CHECK (key_type IN ('front_door','back_door','window','fob','alarm_code','other')),
+  description TEXT,
+  quantity INTEGER DEFAULT 1,
+  handed_to_tenant BOOLEAN DEFAULT false,
+  tenant_id UUID REFERENCES tenants(id),
+  handed_at TIMESTAMPTZ,
+  returned_at TIMESTAMPTZ,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE property_meter_readings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  tenancy_id UUID REFERENCES tenancies(id),
+  meter_type TEXT NOT NULL CHECK (meter_type IN ('gas','electric','water')),
+  meter_serial TEXT NOT NULL,
+  reading_value NUMERIC NOT NULL,
+  reading_date DATE DEFAULT CURRENT_DATE,
+  reading_type TEXT NOT NULL CHECK (reading_type IN ('check_in','check_out','interim')),
+  photo_path TEXT,
+  recorded_by TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE property_readiness_checklist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  tenancy_id UUID REFERENCES tenancies(id),
+  checklist_type TEXT NOT NULL CHECK (checklist_type IN ('pre_tenancy','check_in','check_out')),
+  items JSONB NOT NULL DEFAULT '[]',
+  overall_status TEXT DEFAULT 'not_started' CHECK (overall_status IN ('not_started','in_progress','completed')),
+  completed_at TIMESTAMPTZ,
+  tenant_signature TEXT,
+  agent_signature TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- ============================================================
+-- SECTION 15: LOCAL AUTHORITIES & COUNCIL
+-- ============================================================
+
+CREATE TABLE local_authorities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  address_line1 TEXT,
+  address_line2 TEXT,
+  city TEXT,
+  postcode TEXT,
+  phone TEXT,
+  email TEXT,
+  website TEXT,
+  contact_person TEXT,
+  licensing_required BOOLEAN DEFAULT false,
+  licence_type TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE council_required_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  council_id UUID REFERENCES local_authorities(id) ON DELETE CASCADE,
+  document_type TEXT NOT NULL,
+  is_required BOOLEAN DEFAULT true,
+  description TEXT,
+  sort_order INTEGER DEFAULT 0
+);
+
+-- Add FK for council_id on tenancies (deferred since local_authorities created after tenancies)
+ALTER TABLE tenancies ADD CONSTRAINT fk_tenancies_council
+  FOREIGN KEY (council_id) REFERENCES local_authorities(id);
+
+-- ============================================================
+-- SECTION 16: STICKY NOTES & SYSTEM
+-- ============================================================
+
+CREATE TABLE sticky_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT,
+  color TEXT NOT NULL DEFAULT 'yellow',
+  position_x INTEGER NOT NULL DEFAULT 0,
+  position_y INTEGER NOT NULL DEFAULT 0,
+  rotation INTEGER NOT NULL DEFAULT 0,
+  z_index INTEGER NOT NULL DEFAULT 1,
+  width INTEGER NOT NULL DEFAULT 200,
+  height INTEGER NOT NULL DEFAULT 200,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
 CREATE TABLE audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -720,7 +1064,7 @@ CREATE TABLE notifications (
 );
 
 -- ============================================================
--- SECTION 14: FUNCTIONS
+-- SECTION 17: FUNCTIONS & TRIGGERS
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION generate_next_reference(prefix TEXT, tbl TEXT)
@@ -738,24 +1082,83 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ============================================================
--- SECTION 15: INDEXES
--- ============================================================
+CREATE OR REPLACE FUNCTION generate_receipt_number()
+RETURNS TRIGGER AS $$
+DECLARE
+  next_num INTEGER;
+BEGIN
+  IF NEW.receipt_number IS NULL AND NEW.status = 'paid' THEN
+    SELECT COALESCE(MAX(
+      CAST(SUBSTRING(receipt_number FROM 10) AS INTEGER)
+    ), 0) + 1 INTO next_num
+    FROM rent_transactions
+    WHERE receipt_number IS NOT NULL
+      AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM COALESCE(NEW.paid_date, NEW.due_date));
+    NEW.receipt_number := 'RCP-' || TO_CHAR(COALESCE(NEW.paid_date, NEW.due_date), 'YYYY') || '-' || LPAD(next_num::TEXT, 4, '0');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- Properties
+CREATE TRIGGER trg_generate_receipt_number
+  BEFORE INSERT ON rent_transactions
+  FOR EACH ROW EXECUTE FUNCTION generate_receipt_number();
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_property_rooms_updated_at
+  BEFORE UPDATE ON property_rooms
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_inventory_items_updated_at
+  BEFORE UPDATE ON property_inventory_items
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_readiness_checklist_updated_at
+  BEFORE UPDATE ON property_readiness_checklist
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+SECURITY DEFINER
+SET search_path = public
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  INSERT INTO public.users (id, full_name, email, role, is_active)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    NEW.email,
+    'negotiator',
+    true
+  );
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_user();
+
+-- ============================================================
+-- SECTION 18: INDEXES
+-- ============================================================
 CREATE INDEX idx_properties_ref ON properties(reference_number);
 CREATE INDEX idx_properties_landlord ON properties(landlord_id);
 CREATE INDEX idx_properties_status ON properties(status);
-
--- Landlords
 CREATE INDEX idx_landlords_is_active ON landlords(is_active);
 CREATE INDEX idx_landlord_id_docs_landlord ON landlord_id_documents(landlord_id);
-
--- Tenants
 CREATE INDEX idx_tenants_is_active ON tenants(is_active);
-
--- Property related
 CREATE INDEX idx_property_photos_property ON property_photos(property_id);
+CREATE INDEX idx_property_rooms_property ON property_rooms(property_id);
 CREATE INDEX idx_property_compliance_property ON property_compliance(property_id);
 CREATE INDEX idx_home_safe_licences_property ON property_home_safe_licences(property_id);
 CREATE INDEX idx_home_safe_licences_status ON property_home_safe_licences(status);
@@ -764,13 +1167,10 @@ CREATE INDEX idx_property_tickets_property ON property_tickets(property_id);
 CREATE INDEX idx_property_tickets_status ON property_tickets(status);
 CREATE INDEX idx_property_tickets_type ON property_tickets(type);
 CREATE INDEX idx_property_tickets_due ON property_tickets(due_date);
-
--- Tenancies
 CREATE INDEX idx_tenancies_ref ON tenancies(reference_number);
 CREATE INDEX idx_tenancies_property ON tenancies(property_id);
 CREATE INDEX idx_tenancies_status ON tenancies(status);
-
--- Tenancy children
+CREATE INDEX idx_tenancies_council_id ON tenancies(council_id);
 CREATE INDEX idx_inspections_tenancy ON tenancy_inspections(tenancy_id);
 CREATE INDEX idx_inspections_type ON tenancy_inspections(type);
 CREATE INDEX idx_inspections_date ON tenancy_inspections(inspection_date);
@@ -783,12 +1183,19 @@ CREATE INDEX idx_amendments_tenancy ON tenancy_amendments(tenancy_id);
 CREATE INDEX idx_amendments_date ON tenancy_amendments(effective_date);
 CREATE INDEX idx_arrears_actions_tenancy ON arrears_actions(tenancy_id);
 CREATE INDEX idx_arrears_actions_follow_up ON arrears_actions(follow_up_date) WHERE follow_up_date IS NOT NULL;
-
--- Maintenance
+CREATE INDEX idx_viewings_property ON property_viewings(property_id);
+CREATE INDEX idx_viewings_scheduled ON property_viewings(scheduled_at);
+CREATE INDEX idx_viewings_status ON property_viewings(status);
+CREATE INDEX idx_communications_tenant ON tenant_communications(tenant_id);
+CREATE INDEX idx_communications_logged ON tenant_communications(logged_at);
 CREATE INDEX idx_maintenance_property ON maintenance_requests(property_id);
 CREATE INDEX idx_maintenance_jobs_request ON maintenance_jobs(request_id);
-
--- Agreements
+CREATE INDEX idx_rent_txns_receipt ON rent_transactions(receipt_number);
+CREATE INDEX idx_rent_txns_period ON rent_transactions(period_start, period_end);
+CREATE INDEX idx_tenant_statements_tenant ON tenant_statements(tenant_id);
+CREATE INDEX idx_tenant_statements_tenancy ON tenant_statements(tenancy_id);
+CREATE INDEX idx_tenant_statements_period ON tenant_statements(period_start, period_end);
+CREATE INDEX idx_tenant_statements_created ON tenant_statements(created_at DESC);
 CREATE INDEX idx_clauses_category ON agreement_clauses(category);
 CREATE INDEX idx_clauses_sort ON agreement_clauses(sort_order);
 CREATE INDEX idx_template_sections_template ON template_sections(template_id);
@@ -797,15 +1204,32 @@ CREATE INDEX idx_section_clauses_section ON template_section_clauses(section_id)
 CREATE INDEX idx_section_clauses_clause ON template_section_clauses(clause_id);
 CREATE INDEX idx_template_versions_template ON template_versions(template_id);
 CREATE INDEX idx_generated_agreements_tenancy ON generated_agreements(tenancy_id);
+CREATE INDEX idx_generated_agreements_renewal ON generated_agreements(renewal_id);
+CREATE INDEX idx_generated_agreements_is_renewal ON generated_agreements(is_renewal);
 CREATE INDEX idx_agreement_signatures_agreement ON agreement_signatures(agreement_id);
 CREATE INDEX idx_agreement_attachments_agreement ON agreement_attachments(agreement_id);
 CREATE INDEX idx_agreement_attachments_source ON agreement_attachments(source_table, source_id);
+CREATE INDEX idx_agreement_attachments_type ON agreement_attachments(attachment_type);
+CREATE INDEX idx_inventory_items_property ON property_inventory_items(property_id);
+CREATE INDEX idx_key_inventory_property ON property_key_inventory(property_id);
+CREATE INDEX idx_meter_readings_property ON property_meter_readings(property_id);
+CREATE INDEX idx_meter_readings_tenancy ON property_meter_readings(tenancy_id);
+CREATE INDEX idx_readiness_property ON property_readiness_checklist(property_id);
+CREATE INDEX idx_readiness_tenancy ON property_readiness_checklist(tenancy_id);
+CREATE INDEX idx_renewals_status ON tenancy_renewals(status);
+CREATE INDEX idx_local_authorities_name ON local_authorities(name);
+CREATE INDEX idx_local_authorities_city ON local_authorities(city);
+CREATE INDEX idx_council_required_documents_council_id ON council_required_documents(council_id);
+CREATE INDEX idx_council_required_documents_sort_order ON council_required_documents(sort_order);
+CREATE INDEX idx_sticky_notes_user ON sticky_notes(user_id);
+CREATE INDEX idx_sticky_notes_position ON sticky_notes(position_x, position_y);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_agreement_layout_settings_key ON agreement_layout_settings(key);
 
 -- ============================================================
--- SECTION 16: ROW LEVEL SECURITY
+-- SECTION 19: ROW LEVEL SECURITY
 -- ============================================================
 
--- Enable RLS on all application tables
 DO $$
 DECLARE
   tbl TEXT;
@@ -815,19 +1239,23 @@ BEGIN
       'roles','permissions','users','company_settings',
       'landlords','landlord_id_documents',
       'tenants','tenant_references','tenant_id_documents','tenant_family_members',
-      'properties','property_photos','property_compliance',
+      'properties','property_photos','property_rooms','property_compliance',
       'property_home_safe_licences','property_tickets',
       'documents',
       'tenancies','tenancy_tenants','tenancy_renewals',
       'tenancy_inspections','inspection_rooms','inspection_room_items','inspection_photos',
       'tenancy_terminations','tenancy_checklists','tenancy_status_log','tenancy_amendments',
       'arrears_actions',
+      'property_viewings','tenant_communications',
       'maintenance_requests','contractors','maintenance_jobs',
-      'rent_transactions','landlord_statements','expenses','agency_fees',
+      'rent_transactions','landlord_statements','expenses','agency_fees','tenant_statements',
       'agreement_templates','agreement_clauses',
       'template_sections','template_section_clauses','template_versions',
       'generated_agreements','agreement_signatures','agreement_attachments','agreement_defaults',
-      'audit_log','notifications'
+      'agreement_layout_settings',
+      'property_inventory_items','property_key_inventory','property_meter_readings','property_readiness_checklist',
+      'local_authorities','council_required_documents',
+      'audit_log','notifications','sticky_notes'
     ])
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', tbl);
@@ -839,8 +1267,19 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Sticky notes: user-scoped policies (override generic)
+DROP POLICY IF EXISTS 'Authenticated access on sticky_notes' ON sticky_notes;
+CREATE POLICY "Users can view their own sticky notes"
+  ON sticky_notes FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can create their own sticky notes"
+  ON sticky_notes FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY "Users can update their own sticky notes"
+  ON sticky_notes FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY "Users can delete their own sticky notes"
+  ON sticky_notes FOR DELETE USING (user_id = auth.uid());
+
 -- ============================================================
--- SECTION 17: STORAGE BUCKETS + POLICIES
+-- SECTION 20: STORAGE BUCKETS + POLICIES
 -- ============================================================
 
 INSERT INTO storage.buckets (id, name, public) VALUES
@@ -853,7 +1292,16 @@ INSERT INTO storage.buckets (id, name, public) VALUES
   ('agreements', 'agreements', false)
 ON CONFLICT (id) DO NOTHING;
 
--- Storage policies per bucket
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('inventory-photos', 'inventory-photos', false, 5242880,
+  ARRAY['image/jpeg','image/png','image/webp','image/gif'])
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('expense-invoices', 'expense-invoices', false, 10485760,
+  ARRAY['application/pdf','image/jpeg','image/png','image/webp'])
+ON CONFLICT (id) DO NOTHING;
+
 DO $$
 DECLARE
   b TEXT;
@@ -861,9 +1309,14 @@ BEGIN
   FOR b IN
     SELECT unnest(ARRAY[
       'property-photos','tenant-id-documents','landlord-id-documents',
-      'inspection-photos','documents','agreements'
+      'inspection-photos','documents','agreements',
+      'inventory-photos','expense-invoices'
     ])
   LOOP
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON storage.objects',
+      'Auth access on ' || b
+    );
     EXECUTE format(
       'CREATE POLICY %I ON storage.objects FOR ALL TO authenticated USING (bucket_id = %L) WITH CHECK (bucket_id = %L)',
       'Auth access on ' || b, b, b
@@ -871,24 +1324,16 @@ BEGIN
   END LOOP;
 END $$;
 
--- Company assets: public read, authenticated write
+DROP POLICY IF EXISTS "Public read on company-assets" ON storage.objects;
 CREATE POLICY "Public read on company-assets"
   ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'company-assets');
+DROP POLICY IF EXISTS "Auth write on company-assets" ON storage.objects;
 CREATE POLICY "Auth write on company-assets"
   ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'company-assets');
+DROP POLICY IF EXISTS "Auth delete on company-assets" ON storage.objects;
 CREATE POLICY "Auth delete on company-assets"
   ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'company-assets');
 
--- ============================================================
--- SECTION 18: SEED — Default Roles
--- ============================================================
-
-INSERT INTO roles (name, description) VALUES
-  ('admin', 'Full access to all modules'),
-  ('manager', 'Access to most modules, no system settings'),
-  ('negotiator', 'Properties, tenants, landlords, tenancies'),
-  ('accounts', 'Finance and documents only')
-ON CONFLICT (name) DO NOTHING;

@@ -436,3 +436,105 @@ BEGIN
   VALUES (default_template_id, 'signatures', 'Signatures', 8, true)
   RETURNING id INTO section_signatures;
 END $$;
+
+-- ============================================================
+-- SECTION 5: LOCAL AUTHORITIES (UK Councils)
+-- ============================================================
+
+INSERT INTO local_authorities (name, city, postcode, phone, email, website, licensing_required, licence_type)
+VALUES
+  ('Birmingham City Council', 'Birmingham', 'B1 1BB', '0121 303 1111', 'housing@birmingham.gov.uk', 'https://www.birmingham.gov.uk', true, 'Selective'),
+  ('Manchester City Council', 'Manchester', 'M60 2LA', '0161 234 5000', 'housing@manchester.gov.uk', 'https://www.manchester.gov.uk', true, 'Selective'),
+  ('Leeds City Council', 'Leeds', 'LS1 1UR', '0113 222 4444', 'housing@leeds.gov.uk', 'https://www.leeds.gov.uk', false, NULL),
+  ('Liverpool City Council', 'Liverpool', 'L69 7DD', '0151 233 3000', 'housing@liverpool.gov.uk', 'https://www.liverpool.gov.uk', true, 'Additional'),
+  ('Sheffield City Council', 'Sheffield', 'S1 2HH', '0114 273 4567', 'housing@sheffield.gov.uk', 'https://www.sheffield.gov.uk', false, NULL),
+  ('Bristol City Council', 'Bristol', 'BS1 5TR', '0117 922 2000', 'housing@bristol.gov.uk', 'https://www.bristol.gov.uk', true, 'Selective'),
+  ('Nottingham City Council', 'Nottingham', 'NG1 3BT', '0115 876 3000', 'housing@nottinghamcity.gov.uk', 'https://www.nottinghamcity.gov.uk', true, 'Selective'),
+  ('Newcastle City Council', 'Newcastle upon Tyne', 'NE1 8WH', '0191 278 7878', 'housing@newcastle.gov.uk', 'https://www.newcastle.gov.uk', false, NULL),
+  ('Cardiff Council', 'Cardiff', 'CF10 3AT', '029 2087 2087', 'housing@cardiff.gov.uk', 'https://www.cardiff.gov.uk', false, NULL),
+  ('Lambeth Council', 'London', 'SE1 6LX', '020 7926 1000', 'housing@lambeth.gov.uk', 'https://www.lambeth.gov.uk', true, 'Selective')
+ON CONFLICT (name) DO NOTHING;
+
+-- Add standard document requirements for each council
+DO $$
+DECLARE
+  council_record RECORD;
+  common_docs TEXT[] := ARRAY[
+    'Gas Safety Certificate',
+    'EICR (Electrical Installation Condition Report)',
+    'EPC (Energy Performance Certificate)',
+    'How to Rent Guide Acknowledgment',
+    'Deposit Protection Certificate',
+    'Smoke/CO Alarm Test Record',
+    'Signed Tenancy Agreement',
+    'Tenant ID Documents'
+  ];
+  optional_docs TEXT[] := ARRAY[
+    'Fire Risk Assessment',
+    'Legionella Risk Assessment',
+    'HMO Licence',
+    'Building Insurance Certificate'
+  ];
+  doc_type TEXT;
+BEGIN
+  FOR council_record IN SELECT id FROM local_authorities
+  LOOP
+    FOREACH doc_type IN ARRAY common_docs
+    LOOP
+      INSERT INTO council_required_documents (council_id, document_type, is_required, sort_order)
+      VALUES (council_record.id, doc_type, true, array_position(common_docs, doc_type))
+      ON CONFLICT DO NOTHING;
+    END LOOP;
+    FOREACH doc_type IN ARRAY optional_docs
+    LOOP
+      INSERT INTO council_required_documents (council_id, document_type, is_required, sort_order)
+      VALUES (council_record.id, doc_type, false, 100 + array_position(optional_docs, doc_type))
+      ON CONFLICT DO NOTHING;
+    END LOOP;
+  END LOOP;
+END $$;
+
+-- ============================================================
+-- SECTION 6: DEFAULT AGREEMENT LAYOUT SETTINGS
+-- ============================================================
+
+INSERT INTO agreement_layout_settings (key)
+VALUES ('default')
+ON CONFLICT (key) DO NOTHING;
+
+-- ============================================================
+-- SECTION 7: UPDATE AST TEMPLATE CSS (visual polish)
+-- ============================================================
+
+UPDATE agreement_defaults
+SET body_html = regexp_replace(
+  body_html,
+  '<style>.*?</style>',
+  $css$<style>
+  .agreement-body { font-family: 'Times New Roman', serif; font-size: 11pt; line-height: 1.6; color: #000; }
+  .agreement-body h1 { font-size: 14pt; text-align: center; text-decoration: underline; margin: 20px 0 8px; font-weight: bold; }
+  .agreement-body h2 { font-size: 12pt; margin: 24px 0 8px; border-bottom: 2px solid #333; padding-bottom: 4px; font-weight: bold; }
+  .agreement-body h3 { font-size: 11pt; font-weight: bold; margin: 14px 0 6px; }
+  .agreement-body p { margin: 4px 0; text-align: justify; }
+  .agreement-body ul { margin: 4px 0 4px 20px; padding: 0; }
+  .agreement-body li { margin: 2px 0; }
+  .agreement-body .clause { margin-left: 24px; text-indent: -20px; margin-bottom: 4px; }
+  .agreement-body .sub-clause { margin-left: 40px; text-indent: -20px; margin-bottom: 3px; }
+  .agreement-body .section-divider { border: none; border-top: 2px solid #999; margin: 20px 0; }
+  .agreement-body .center-text { text-align: center; }
+  .agreement-body .bold { font-weight: bold; }
+  .agreement-body .red-text { color: #cc0000; }
+  .agreement-body .notice-box { text-align: center; font-size: 12pt; font-weight: bold; margin: 20px 0; padding: 16px; border: 2px solid #333; background: #fafafa; }
+  .agreement-body table.family-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  .agreement-body table.family-table th, .agreement-body table.family-table td { border: 1px solid #000; padding: 6px 10px; font-size: 11pt; }
+  .agreement-body table.family-table th { font-size: 14pt; font-weight: bold; background: #f5f5f5; text-align: left; }
+  .agreement-body table.family-table td { min-height: 28px; }
+  .agreement-body table.details-table { border-collapse: collapse; margin: 4px 0; }
+  .agreement-body table.details-table td { padding: 3px 10px; border: none; font-size: 11pt; }
+  .agreement-body .signature-block { margin-top: 24px; }
+  .agreement-body .signature-line { border-bottom: 1px solid #000; width: 300px; height: 40px; margin: 8px 0; }
+</style>$css$,
+  'n'
+)
+WHERE key = 'default_ast';
+
